@@ -1,0 +1,51 @@
+{
+  "id": "lilypad",
+  "name": "Lilypad Leap",
+  "author": "you",
+  "tileSize": 64,
+  "sprites": {
+    "tile.water": "board/water.png",
+    "tile.void": "board/void.png",
+    "tile.start": "board/start.png",
+    "tile.home.shore": "board/shore.png",
+    "tile.home.rocks": "board/rocks.png",
+    "tile.home.bench": "board/bench.png",
+    "hazard.primary": "pieces/heron.png",
+    "piece.player0": "pieces/p0.png",
+    "piece.player1": "pieces/p1.png",
+    "piece.player2": "pieces/p2.png",
+    "piece.player3": "pieces/p3.png",
+    "die.move1": "die/move1.png",
+    "die.move2": "die/move2.png",
+    "die.move3": "die/move3.png",
+    "die.leap": "die/leap.png",
+    "die.hazard": "die/hazard.png"
+  },
+  "strings": {
+    "piece.singular": "frog",
+    "piece.plural": "frogs",
+    "hazard.primary": "heron",
+    "action.move": "Hop",
+    "action.leap": "Leapfrog",
+    "action.hazard": "Heron snack",
+    "zone.home": "home shore",
+    "zone.bench": "bench",
+    "zone.rocks": "rocks",
+    "zone.shore": "shore"
+  },
+  "sounds": {
+    "move": "sfx/hop.ogg",
+    "leap": "sfx/leap.ogg",
+    "capture": "sfx/snap.ogg",
+    "settle": "sfx/plop.ogg"
+  },
+  "palette": {
+    "boardEdge": "#2f6f3e",
+    "water": "#4a8fb5",
+    "highlight": "#ffd400",
+    "player0": "#c62828",
+    "player1": "#2e7d32",
+    "player2": "#1565c0",
+    "player3": "#f9a825"
+  }
+}

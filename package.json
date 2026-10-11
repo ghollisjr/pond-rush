@@ -1,0 +1,22 @@
+{
+  "name": "pond-rush",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A theme-agnostic pond-crossing board game: swappable rulesets, swappable art.",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "simulate": "node --experimental-strip-types scripts/simulate.ts",
+    "typecheck": "tsc --noEmit",
+    "dev": "esbuild src/ui/main.ts --bundle --format=esm --outfile=web/app.js --servedir=web --serve=8000 --watch",
+    "build": "esbuild src/ui/main.ts --bundle --format=esm --minify --outfile=web/app.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.6.0"
+  }
+}

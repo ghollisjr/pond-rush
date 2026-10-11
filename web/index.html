@@ -1,0 +1,167 @@
+<meta charset="utf-8" />
+<title>Pond Rush — hot seat</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #e8eef2;
+    --panel: #161b21;
+    --edge: #2b343d;
+  }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: #0d1116;
+    color: var(--ink);
+    font: 15px/1.5 system-ui, sans-serif;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  #board {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    cursor: pointer;
+    flex: none;
+  }
+  aside {
+    flex: 1 1 260px;
+    min-width: 260px;
+    max-width: 380px;
+  }
+  h1 { font-size: 18px; margin: 0 0 12px; letter-spacing: 0.04em; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  #turn { font-size: 20px; font-weight: 700; }
+  /* Reserve the line even when empty: it is blank between the roll and the
+     action, and a collapsing line shifts the buttons under the cursor. */
+  #face { opacity: 0.8; min-height: 1.5em; }
+  #hint { opacity: 0.65; font-size: 13px; min-height: 1.5em; }
+  #scores { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .score {
+    border-left: 4px solid;
+    padding: 2px 8px;
+    background: #0d1116;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  button, select, input {
+    font: inherit;
+    background: #222a32;
+    color: var(--ink);
+    border: 1px solid var(--edge);
+    border-radius: 4px;
+    padding: 6px 12px;
+  }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { background: #2d3740; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row + .row { margin-top: 10px; }
+  label { font-size: 13px; opacity: 0.75; }
+  #seed { width: 72px; }
+  #rescue { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* Help lives beside the board rather than over it: it explains what is on
+     screen, so covering the screen would defeat it. */
+  #help { max-width: 420px; flex: 1 1 320px; }
+  #help h2 {
+    font-size: 15px;
+    margin: 0 0 6px;
+    letter-spacing: 0.03em;
+  }
+  #help-detail { font-size: 13.5px; opacity: 0.85; margin-bottom: 12px; }
+  #help-options { list-style: none; margin: 0; padding: 0; }
+  #help-options li {
+    border-left: 3px solid var(--edge);
+    padding: 2px 0 2px 10px;
+    margin-bottom: 9px;
+    font-size: 13px;
+  }
+  #help-options b { display: block; color: #ffd400; font-weight: 600; }
+  #help-options span { opacity: 0.75; }
+  .doc h3 {
+    font-size: 13px;
+    margin: 14px 0 4px;
+    letter-spacing: 0.03em;
+    color: #ffd400;
+  }
+  .doc h3:first-child { margin-top: 0; }
+  .doc p { margin: 0 0 6px; font-size: 13px; opacity: 0.8; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tabs button[aria-selected="true"] {
+    background: #3a4650;
+    border-color: #55646f;
+  }
+  #theme-problems {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #e0a92b;
+    margin-top: 8px;
+  }
+</style>
+
+<div id="board"></div>
+
+<aside>
+  <h1>POND RUSH — HOT SEAT</h1>
+
+  <div class="card">
+    <div id="turn"></div>
+    <div id="face"></div>
+    <div id="scores"></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button id="roll">Roll</button>
+      <button id="confirm" hidden></button>
+      <button id="pass">Pass</button>
+      <button id="undo">Undo</button>
+      <button id="help-toggle" aria-expanded="true">Help</button>
+    </div>
+    <div class="row" id="rescue" hidden></div>
+    <div class="row"><span id="hint"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <select id="variant"></select>
+      <label for="seed">seed</label>
+      <input id="seed" type="number" value="1" min="1" />
+      <button id="new">New game</button>
+    </div>
+    <div class="row">
+      <label for="theme">Theme folder</label>
+      <input id="theme" type="file" webkitdirectory directory multiple />
+    </div>
+    <div id="theme-problems" hidden></div>
+  </div>
+</aside>
+
+<aside id="help">
+  <div class="card">
+    <div class="tabs">
+      <button id="tab-now" aria-selected="true">Now</button>
+      <button id="tab-rules" aria-selected="false">Rules</button>
+      <button id="tab-tutorial" aria-selected="false">First game</button>
+    </div>
+
+    <div id="pane-now">
+      <h2 id="help-headline"></h2>
+      <div id="help-detail"></div>
+      <ul id="help-options"></ul>
+    </div>
+
+    <div id="pane-rules" class="doc" hidden></div>
+    <div id="pane-tutorial" class="doc" hidden></div>
+  </div>
+</aside>
+
+<script type="module" src="app.js"></script>

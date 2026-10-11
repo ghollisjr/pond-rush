@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# Built by esbuild, and by CI for the Pages deploy. Not a source file.
+web/app.js
+
+# Local snapshot and personal scratch notes, not project content.
+pond-rush.zip
+links.org
