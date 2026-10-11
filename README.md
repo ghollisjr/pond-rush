@@ -1,5 +1,11 @@
 # Pond Rush
 
+[![Build and deploy](https://github.com/ghollisjr/pond-rush/actions/workflows/pages.yml/badge.svg)](https://github.com/ghollisjr/pond-rush/actions/workflows/pages.yml)
+
+**[Play it here](https://ghollisjr.github.io/pond-rush/)** — hot seat, four
+players on one screen. Press Roll; the Help panel beside the board explains
+whatever is in front of you.
+
 A small turn-based board game: families of pieces race across a pond to a
 scoring shore while a hazard picks them off. Built so that both the **rules**
 and the **art** are swappable at runtime.
@@ -11,6 +17,18 @@ Two independent swap points, which is the whole point of the design:
 - **Themes are resource packs.** The engine emits abstract keys
   (`piece.player0`, `tile.home.bench`); a theme maps those to art and text. The
   engine contains no theme-specific vocabulary at all.
+
+## Deploying
+
+Every push to `main` runs the suite and the typechecker, bundles
+`src/ui/main.ts`, and publishes `web/` to GitHub Pages
+(`.github/workflows/pages.yml`). The deploy is gated on the tests: a board that
+validates can still be unplayable, so the least CI can do is refuse to ship a
+build that does not pass.
+
+`web/app.js` is built, not committed. Everything the page loads is referenced
+by relative path, which is what lets it serve from a project subpath
+(`/pond-rush/`) without a base-URL setting.
 
 ## Running it
 
