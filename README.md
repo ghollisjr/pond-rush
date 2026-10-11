@@ -16,7 +16,8 @@ Two independent swap points, which is the whole point of the design:
   their own in a UI, save them, and send them to each other as a string.
 - **Themes are resource packs.** The engine emits abstract keys
   (`piece.player0`, `tile.home.bench`); a theme maps those to art and text. The
-  engine contains no theme-specific vocabulary at all.
+  engine contains no theme-specific vocabulary at all. See
+  **[docs/theme-packs.md](docs/theme-packs.md)** to make one.
 
 ## Deploying
 
@@ -54,7 +55,8 @@ npm install && npm run typecheck   # typecheck needs @types/node
 src/rules.ts        Rule schema, board format, variants, validation, persistence
 src/pond-engine.ts  Pure engine: state, legal moves, applying moves, scoring
 src/theme.ts        Theme manifest types and loaders (URL and local folder)
-src/themes/lilypad/ Example theme manifest
+web/theme/          The default pack: original SVG art. A worked example
+src/themes/lilypad/ A deliberately art-less manifest, kept as a test fixture
 test/engine.test.ts 27 tests, doubling as executable rules documentation
 scripts/simulate.ts Balance harness — plays thousands of games, reports scoring
 docs/rules-source.md The source rules, transcribed, with open questions
@@ -107,12 +109,14 @@ configurations that are legal but miserable.
 ## Current state
 
 Working: full rules engine, all published variants, validation, variant
-import/export, theme loader, 27 passing tests, deterministic replay verified
-across thousands of simulated games.
+import/export, theme loader, renderer, local hot-seat play with contextual
+help, and a generated SVG default theme. 89 passing tests, deterministic
+replay verified across thousands of simulated games, and the page driven
+through a real browser for six scenarios including a game to completion.
 
-Not built yet: the renderer, the theme-editing UI, the variant-editing UI, and
-the multiplayer server. `view(state)` is the interface the renderer should be
-written against.
+Not built yet: the variant-editing UI and the multiplayer server. The Undo
+button already does the server's reconnect trick locally — `replay(seed,
+log.slice(0, -1), board, rules)`.
 
 ## Legal note
 

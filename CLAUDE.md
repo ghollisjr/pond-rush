@@ -40,6 +40,11 @@ packs still arrive at runtime through the folder picker and never land here.
 `src/themes/lilypad/theme.json` is kept deliberately art-less as a fixture for
 the manifest-with-no-files case that once blanked the board.
 
+`docs/theme-packs.md` is the authoring guide for packs. Its key tables are
+asserted against `REQUIRED_SPRITE_KEYS` and `REQUIRED_STRING_KEYS` in
+`test/docs.test.ts`, so adding a required key without documenting it fails the
+suite. Keep it that way — a stale guide is worse than none.
+
 **Try tier 1 before tier 2.** A new variant should be a JSON patch in
 `BUILT_IN_VARIANTS`. All published variants fit, including the one that
 reshapes the whole board. Only add a code module when a rule needs logic the
