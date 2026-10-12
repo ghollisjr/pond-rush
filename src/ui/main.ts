@@ -50,6 +50,13 @@ import {
 
 const registry = new VariantRegistry();
 
+/**
+ * How far the board is laid back on first load. Flat reads as a diagram;
+ * this reads as a board on a table, which is what the game is. The slider
+ * goes to 0 for anyone who wants the top-down view back.
+ */
+const DEFAULT_TILT = 45;
+
 interface Session {
   variantId: string;
   seed: number;
@@ -71,7 +78,7 @@ function newSession(variantId: string, seed: number, theme: Theme): Session {
     state: createGame(seed, board, rules),
     selection: NO_SELECTION,
     theme,
-    tilt: session?.tilt ?? 0,
+    tilt: session?.tilt ?? DEFAULT_TILT,
   };
 }
 
@@ -295,6 +302,8 @@ function wire(): void {
   }
 
   const tilt = $("tilt") as HTMLInputElement;
+  tilt.value = String(session.tilt);
+  $("tilt-read").textContent = session.tilt ? `${session.tilt}°` : "flat";
   tilt.addEventListener("input", () => {
     session.tilt = Number(tilt.value);
     $("tilt-read").textContent = session.tilt ? `${session.tilt}°` : "flat";

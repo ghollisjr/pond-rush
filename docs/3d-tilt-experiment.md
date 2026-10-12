@@ -1,10 +1,12 @@
-# Experiment: a tilted, 3D-perspective board
+# The tilted, 3D-perspective board
 
-Branch `experiment/3d-tilt`. Not merged.
+Merged from `experiment/3d-tilt`. Shipped, and on by default at 45°.
 
 ## What it does
 
-A slider lays the board back from 0° (the flat top-down board) to 65°. The
+A slider lays the board back from 0° (the flat top-down board) to 65°, and
+starts at 45°, which is where it reads as a board on a table rather than a
+diagram. `DEFAULT_TILT` in `src/ui/main.ts` is the one place that decides. The
 whole board is one rotated plane: tiles lie flat on it, pieces and the hazard
 counter-rotate so they stand up facing the viewer.
 
@@ -72,9 +74,9 @@ recedes), and a radial gradient behind the plane to act as a horizon.
   it should become a real sprite key.
 - **Mobile.** Untested. A tilted board at a phone width may be unusable.
 
-## Verdict
+## Where it could go next
 
-Worth keeping as an option, not as the default. It costs almost nothing and
-makes the board read as an object on a table. If the look is wanted properly,
-the next step is true isometric — project in `layout()`, sort by `r + c`, and
-redraw the pack — which is a bigger job because of the art, not the code.
+True isometric: project in `layout()`, sort by `r + c`, redraw the pack. That
+is a bigger job because of the **art**, not the code — the seam it would use
+is the same one the tilt uses, and `coordFromElement` already works for any
+projection. Worth doing only if the crowding at the back row starts to matter.

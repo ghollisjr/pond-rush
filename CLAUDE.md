@@ -54,6 +54,22 @@ schema genuinely cannot express, and say so in the commit message.
 `tileSize` from the theme manifest. A theme with chunky 96px tiles and one with
 flat 48px tiles must both just work.
 
+This is what let the board be tilted into perspective without touching
+anything above the renderer: `Scene.tilt` lays the whole plane back and a test
+asserts it moves no sprite's `x` or `y`. It also means **the hit test must not
+invert the layout maths.** `coordAt()` does, and is therefore only valid on a
+flat board; the UI uses `coordFromElement()`, which reads `data-r`/`data-c`
+off whatever the browser hit-tested. That is projection-independent and is
+what an isometric or WebGL renderer would use too. Do not route clicks back
+through pixel arithmetic.
+
+**A control must never change the layout around itself.** The tilt slider
+first sized the board's stage from the current tilt, so dragging it reflowed
+the page and moved the slider out from under the cursor. The HUD's face line
+had the same bug when it collapsed while empty. Reserve the space as a
+constant, and do presentational resizing inside a `transform`, which costs no
+reflow.
+
 ## Source rules
 
 `docs/rules-source.md` has the printed rules transcribed, plus what's still
