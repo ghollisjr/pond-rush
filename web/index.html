@@ -86,6 +86,10 @@
   label { font-size: 13px; opacity: 0.75; }
   #seed { width: 72px; }
   #tilt { width: 120px; }
+  #share-url { width: 100%; font-size: 12px; }
+  /* Owned by events, never by render(): a message about something that just
+     happened must not be wiped by the next repaint of the board. */
+  #notice { font-size: 13px; color: #ffd400; opacity: 0.9; }
   #tilt-read { font-size: 13px; opacity: 0.7; min-width: 3.5em; }
   #rescue { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
@@ -146,7 +150,12 @@
       <button id="pass">Pass</button>
       <button id="undo">Undo</button>
       <button id="help-toggle" aria-expanded="true">Help</button>
+      <button id="share">Copy link</button>
     </div>
+    <div class="row">
+      <input id="share-url" type="text" readonly hidden />
+    </div>
+    <div class="row"><span id="notice" hidden></span></div>
     <div class="row">
       <label for="tilt">tilt</label>
       <input id="tilt" type="range" min="0" max="65" step="5" value="45" />

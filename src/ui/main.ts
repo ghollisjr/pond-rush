@@ -18,6 +18,7 @@ import {
   applyMove,
   createGame,
   legalMoves,
+  moveIndex,
   replay,
   scores,
   view,
@@ -25,6 +26,13 @@ import {
   type Move,
 } from "../pond-engine.ts";
 import { BUILT_IN_VARIANTS, VariantRegistry } from "../rules.ts";
+import {
+  decodeGame,
+  encodeGame,
+  loadSaved,
+  replayIndices,
+  saveGame,
+} from "../session.ts";
 import { coordFromElement, layout, type Scene } from "../renderer.ts";
 import { paint } from "../renderer.ts";
 import {
@@ -65,6 +73,12 @@ interface Session {
   theme: Theme;
   /** Degrees the board is laid back. 0 is the flat top-down view. */
   tilt: number;
+  /**
+   * The move log as indices into `legalMoves`, kept in step with
+   * `state.history`. Appended as moves are made rather than re-derived, which
+   * would mean replaying the whole game on every turn.
+   */
+  moves: number[];
 }
 
 let session: Session = newSession("standard-4p", 1, new Theme(PLAIN_THEME));
@@ -79,6 +93,7 @@ function newSession(variantId: string, seed: number, theme: Theme): Session {
     selection: NO_SELECTION,
     theme,
     tilt: session?.tilt ?? DEFAULT_TILT,
+    moves: [],
   };
 }
 
@@ -87,8 +102,13 @@ function newSession(variantId: string, seed: number, theme: Theme): Session {
 // ---------------------------------------------------------------------------
 
 function commit(move: Move): void {
+  // Taken against the pre-move state: an index only means anything relative
+  // to the list it indexes.
+  const index = moveIndex(session.state, move);
   session.state = applyMove(session.state, move);
+  if (index >= 0) session.moves.push(index);
   session.selection = NO_SELECTION;
+  publish();
   render();
 }
 
@@ -102,8 +122,74 @@ function undo(): void {
   if (!log.length) return;
   const { rules, board } = registry.resolve(session.variantId);
   session.state = replay(session.seed, log.slice(0, -1), board, rules);
+  session.moves.pop();
   session.selection = NO_SELECTION;
+  publish();
   render();
+}
+
+// ---------------------------------------------------------------------------
+// Sharing and resuming
+//
+// There is no server: a game travels as a link and persists in this browser.
+// Both are the same three facts — variant, seed, and the moves as indices —
+// which is also what a server would store, so none of this is throwaway.
+// ---------------------------------------------------------------------------
+
+/**
+ * A message about something that just happened. Deliberately not the hint
+ * line: `render()` rewrites that from the game state, and the theme pack
+ * finishes loading after boot and repaints — which silently swallowed the
+ * "that link didn't load" message until this existed.
+ */
+function notify(message: string): void {
+  const el = $("notice");
+  el.textContent = message;
+  el.hidden = !message;
+}
+
+function currentLink(): string {
+  return encodeGame({
+    variantId: session.variantId,
+    seed: session.seed,
+    moves: session.moves,
+  });
+}
+
+/** Put the game in the URL and in local storage. Never throws. */
+function publish(): void {
+  const code = currentLink();
+  try {
+    history.replaceState(null, "", `#g=${code}`);
+  } catch {
+    // Some embeddings disallow replaceState. The link button still works.
+  }
+  try {
+    saveGame(localStorage, {
+      id: `${session.variantId}.${session.seed}`,
+      variantId: session.variantId,
+      seed: session.seed,
+      moves: session.moves,
+      updatedAt: Date.now(),
+    });
+  } catch {
+    // Private browsing. Playing on is more important than remembering.
+  }
+}
+
+/** Build a session from a link, or return null if there is no usable one. */
+function sessionFromLink(code: string, theme: Theme): Session | null {
+  const ref = decodeGame(code);
+  const { rules, board } = registry.resolve(ref.variantId);
+  return {
+    variantId: ref.variantId,
+    seed: ref.seed,
+    state: replayIndices(ref, board, rules),
+    selection: NO_SELECTION,
+    theme,
+    tilt: DEFAULT_TILT,
+    moves: ref.moves,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -276,9 +362,14 @@ function wire(): void {
     (v) => `<option value="${v.id}">${v.name}</option>`
   ).join("");
 
+  picker.value = session.variantId;
+  ($("seed") as HTMLInputElement).value = String(session.seed);
+
   const start = () => {
     const seed = Number(($("seed") as HTMLInputElement).value) || 1;
     session = newSession(picker.value, seed, session.theme);
+    notify("");
+    publish();
     render();
   };
 
@@ -310,6 +401,21 @@ function wire(): void {
     render();
   });
 
+  $("share").addEventListener("click", async () => {
+    const url = `${location.origin}${location.pathname}#g=${currentLink()}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      notify("Link copied — send it to the next player.");
+    } catch {
+      // Clipboard access is refused in plenty of contexts. Showing the link
+      // is worse than copying it, but much better than silently failing.
+      ($("share-url") as HTMLInputElement).value = url;
+      $("share-url").hidden = false;
+      ($("share-url") as HTMLInputElement).select();
+      notify("Copy this link and send it to the next player.");
+    }
+  });
+
   $("help-toggle").addEventListener("click", () => {
     const panel = $("help");
     panel.hidden = !panel.hidden;
@@ -338,7 +444,7 @@ function wire(): void {
       render();
     } catch (err) {
       showThemeProblems([]);
-      $("hint").textContent = `Theme didn't load: ${(err as Error).message}`;
+      notify(`Theme didn't load: ${(err as Error).message}`);
     }
   });
 }
@@ -362,6 +468,52 @@ async function loadDefaultPack(): Promise<void> {
   }
 }
 
+/**
+ * Decide which game to open with. A link someone sent beats whatever was
+ * last played here, and anything unreadable falls back to a new game with a
+ * message rather than a blank page.
+ */
+function boot(): string | null {
+  const fromUrl = /^#g=(.+)$/.exec(location.hash)?.[1];
+  if (fromUrl) {
+    try {
+      const restored = sessionFromLink(decodeURIComponent(fromUrl), session.theme);
+      if (restored) {
+        session = restored;
+        return null;
+      }
+    } catch (err) {
+      return `That link didn't load: ${(err as Error).message}`;
+    }
+  }
+
+  try {
+    const [latest] = loadSaved(localStorage);
+    if (latest) {
+      const { rules, board } = registry.resolve(latest.variantId);
+      session = {
+        variantId: latest.variantId,
+        seed: latest.seed,
+        state: replayIndices(latest, board, rules),
+        selection: NO_SELECTION,
+        theme: session.theme,
+        tilt: DEFAULT_TILT,
+        moves: latest.moves,
+      };
+      return latest.moves.length ? "Resumed your last game." : null;
+    }
+  } catch {
+    // A saved game from an older format, or a variant that no longer exists.
+    // Starting fresh is the right answer and needs no explanation.
+  }
+  return null;
+}
+
+const bootMessage = boot();
 wire();
 render();
+// So the address bar and the Copy link button agree from the first paint,
+// not only after the first move.
+publish();
+if (bootMessage) notify(bootMessage);
 void loadDefaultPack();

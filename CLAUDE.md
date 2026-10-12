@@ -156,6 +156,15 @@ vocabulary and no theme word is hard-coded.
 that stays in the repo, so its vocabulary is abstract on purpose — "piece",
 "hazard", "Move". Flavoured packs stay data, loaded at runtime.
 
+Done since: play-by-link. `src/session.ts` encodes a game as
+`v1.<variant>.<seed>.<varint move indices>` and replays it. The indices work
+because `legalMoves` is a deterministic function of the state, so "the nth
+legal option" is a complete description of a move — 255 characters for a
+112-move game against 4677 as JSON. That is also why a tampered link is safe:
+an index that is not a legal move cannot be misread as a different move, only
+rejected. The same encoding is what the server will store, so this is not a
+detour around roadmap item 3 — it is the wire format arriving early.
+
 Still to do:
 
 1. **Variant editor.** A form bound to the `RuleSet` shape. Use `fork()` to

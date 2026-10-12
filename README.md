@@ -19,6 +19,39 @@ Two independent swap points, which is the whole point of the design:
   engine contains no theme-specific vocabulary at all. See
   **[docs/theme-packs.md](docs/theme-packs.md)** to make one.
 
+## Playing with other people
+
+There is no server. A game is fully described by three things — variant, seed,
+and the moves — and because the engine is pure and `legalMoves` is
+deterministic, a move can be written as its *index* in that list rather than
+its contents. A 112-move game is 255 characters that way, against 4677 as
+JSON, which is the difference between a link you can send and one you cannot.
+
+So: take your turn, press **Copy link**, send it. The next player opens it and
+sees the exact board you left. Turn-based, so latency is irrelevant, and
+nothing needs hosting.
+
+```
+ghollisjr.github.io/pond-rush/#g=v1.standard-4p.1.ACwAAAAIAAAALgAA
+                                  └ format
+                                     └ variant
+                                                └ seed
+                                                  └ moves, as varint indices
+```
+
+Games are also kept in `localStorage`, so closing the tab and coming back
+resumes where you were.
+
+What this does **not** do is enforce anything. Anyone can edit a link, and
+nobody is authenticated — the game is as honest as the people playing it. For
+friends passing turns that is the right trade. The server in the roadmap is
+what replaces it when it is not, and the encoding here is already the wire
+format that server would use, so none of it is wasted.
+
+A corrupted or tampered link is rejected rather than played: an index that
+is not a legal move cannot be anything but damage, so `replayIndices` throws
+and the page starts a new game and says why.
+
 ## Deploying
 
 Every push to `main` runs the suite and the typechecker, bundles

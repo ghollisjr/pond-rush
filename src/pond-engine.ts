@@ -487,6 +487,20 @@ export function isLegal(state: GameState, move: Move): boolean {
   return legalMoves(state).some((m) => sameMove(m, move));
 }
 
+/**
+ * Where `move` sits in this state's `legalMoves`, or -1 if it is not legal.
+ *
+ * `legalMoves` is a pure function of the state, so both players compute the
+ * same list in the same order. That makes "the nth legal option" a complete
+ * description of a move — far shorter than the move itself, and impossible to
+ * misread, since an index that does not exist is simply not a move. A whole
+ * game compresses to a list of small integers, which is what lets one be
+ * carried in a URL.
+ */
+export function moveIndex(state: GameState, move: Move): number {
+  return legalMoves(state).findIndex((m) => sameMove(m, move));
+}
+
 function pathEq(a: Coord[], b: Coord[]): boolean {
   return a.length === b.length && a.every((c, i) => eq(c, b[i]));
 }
