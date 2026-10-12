@@ -73,10 +73,25 @@ crossing means everyone is eaten before anyone scores.
 
 | Variant        | avgPiecesHome (greedy) | Verdict                       |
 | -------------- | ---------------------- | ----------------------------- |
-| standard-4p    | ~2.3                   | plays, on the harsh side      |
-| standard-2p    | ~4.8                   | good after shortening to 3 rows |
+| standard-4p    | ~2.4                   | plays, on the harsh side      |
+| standard-2p    | ~4.7                   | good after shortening to 3 rows |
 | triple-trouble | ~6.3                   | plays well                    |
-| stork-escape   | ~2.7                   | plays                         |
+| hop-share      | ~2.4                   | plays; no measurable effect on this number |
+| stork-escape   | ~2.5                   | plays                         |
+| gap-jump       | ~3.7                   | plays best of the 4p set — see below |
+| house          | ~2.5                   | plays                         |
+
+**Gap Jump is the most promising answer to four-player harshness.** It lifts
+`avgPiecesHome` from ~2.4 to ~3.7 and shortens the game slightly (113 -> 106
+turns), without the runaway length Stork Escape causes under random play. That
+is a bigger improvement than either published variant manages, which is worth
+knowing before anyone reshapes the 4p board to fix the same problem. It is
+also `[PROVISIONAL]` and unverified against the booklet, so treat it as a good
+house rule rather than evidence about the real game.
+
+Note Hop Share and Stork Escape barely move this number under greedy play.
+Stork Escape's value is that it stops a player being eliminated outright, which
+`avgPiecesHome` does not capture — check the random-agent rows for that.
 
 Two-player originally sat at **0.0** — literally nobody ever scored — because
 with only ten pieces the hazard is twice as concentrated per piece. Shortening
