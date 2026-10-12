@@ -155,6 +155,22 @@ describe("layout", () => {
     expect(spun.some((s) => s.rotation !== 0)).toBe(true);
   });
 
+  it("carries the tilt through to the scene, flat by default", () => {
+    const v = view(game);
+    expect(layout(v, makeTheme()).tilt).toBe(0);
+    expect(layout(v, makeTheme(), { tilt: 45 }).tilt).toBe(45);
+    // Tilt is presentational: it must not move a single grid position. It
+    // does add contact shadows, which only exist when there is a ground
+    // plane to fall on, so compare everything else.
+    const flat = layout(v, makeTheme());
+    const tilted = layout(v, makeTheme(), { tilt: 45 });
+    const placed = (sc: typeof flat) =>
+      sc.sprites.filter((s) => s.kind !== "shadow").map((s) => [s.kind, s.x, s.y]);
+    expect(placed(tilted)).toEqual(placed(flat));
+    expect(tilted.sprites.some((s) => s.kind === "shadow")).toBe(true);
+    expect(flat.sprites.some((s) => s.kind === "shadow")).toBe(false);
+  });
+
   it("is pure — two layouts of the same state are identical", () => {
     const v = view(game);
     expect(layout(v, makeTheme()).sprites).toEqual(layout(v, makeTheme()).sprites);

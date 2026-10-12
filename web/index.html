@@ -18,6 +18,25 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
+  /* A rotated plane keeps its old layout box, so the top of the board lifts
+     out of it. Reserve the room rather than letting it collide with the HUD. */
+  /* A rotated plane keeps its original layout box, so the near edge spreads
+     wider and the far edge lifts higher than the box accounts for. The room
+     is reserved once, as a constant: sizing it to the current tilt reflowed
+     the page on every slider step, which moved the slider out from under the
+     cursor and broke the drag. Nothing here may depend on the tilt. */
+  #board-stage {
+    flex: none;
+    /* Vertical only. The shrink in the transform keeps the near edge within
+       about its own width, so what little spills sideways lands in the gap
+       between columns — adding horizontal padding here only pushed the help
+       panel onto its own row. */
+    padding: 64px 0 24px;
+    /* A horizon behind the plane: the far water reads as further away. */
+    background:
+      radial-gradient(120% 90% at 50% 18%, #16202b 0%, #0d1116 60%);
+    border-radius: 8px;
+  }
   #board {
     background: var(--panel);
     border: 1px solid var(--edge);
@@ -66,6 +85,8 @@
   .row + .row { margin-top: 10px; }
   label { font-size: 13px; opacity: 0.75; }
   #seed { width: 72px; }
+  #tilt { width: 120px; }
+  #tilt-read { font-size: 13px; opacity: 0.7; min-width: 3.5em; }
   #rescue { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   /* Help lives beside the board rather than over it: it explains what is on
@@ -107,7 +128,7 @@
   }
 </style>
 
-<div id="board"></div>
+<div id="board-stage"><div id="board"></div></div>
 
 <aside>
   <h1>POND RUSH — HOT SEAT</h1>
@@ -125,6 +146,11 @@
       <button id="pass">Pass</button>
       <button id="undo">Undo</button>
       <button id="help-toggle" aria-expanded="true">Help</button>
+    </div>
+    <div class="row">
+      <label for="tilt">tilt</label>
+      <input id="tilt" type="range" min="0" max="65" step="5" value="0" />
+      <span id="tilt-read">flat</span>
     </div>
     <div class="row" id="rescue" hidden></div>
     <div class="row"><span id="hint"></span></div>

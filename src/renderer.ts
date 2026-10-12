@@ -19,7 +19,7 @@
 import type { BoardView, Coord, PieceId, Vec } from "./pond-engine.ts";
 import type { Theme } from "./theme.ts";
 
-export type SpriteKind = "tile" | "highlight" | "piece" | "hazard";
+export type SpriteKind = "tile" | "shadow" | "highlight" | "piece" | "hazard";
 
 /** One positioned thing to draw. Pixels, because this is the pixel layer. */
 export interface Sprite {
@@ -54,6 +54,12 @@ export interface Scene {
   highlightColour: string;
   /** Scale this pack's art with hard pixel edges rather than smoothing. */
   pixelArt: boolean;
+  /**
+   * Degrees to lay the board back from the viewer. 0 is the flat top-down
+   * board. Purely presentational — the engine knows nothing about it, and
+   * every coordinate in this scene is still the flat grid position.
+   */
+  tilt: number;
   sprites: Sprite[];
 }
 
@@ -71,6 +77,8 @@ export interface LayoutOptions {
    * `highlights` — the renderer still knows no rules.
    */
   pending?: { piece: PieceId; at: Coord } | null;
+  /** Lay the board back by this many degrees. 0, the default, is flat. */
+  tilt?: number;
 }
 
 // Z-bands. Pieces sit above their tile; highlights sit above pieces, because
@@ -78,13 +86,23 @@ export interface LayoutOptions {
 // cell drawn under an opaque piece is a lit cell nobody can see. Highlights
 // are translucent, so the piece underneath still reads through the tint. The
 // hazard stays on top, so a piece about to be taken is never hidden under it.
+/**
+ * Viewer distance for the tilted board, in pixels. Lower is a wider angle and
+ * a stronger sense of depth; too low and the near row balloons. 1200 was far
+ * enough that the board read as merely squashed rather than receding.
+ */
+const PERSPECTIVE = 800;
+
 const Z_TILE = 0;
-const Z_PIECE = 1;
-const Z_HIGHLIGHT = 2;
-const Z_HAZARD = 3;
+const Z_SHADOW = 1;
+const Z_PIECE = 2;
+const Z_HIGHLIGHT = 3;
+const Z_HAZARD = 4;
 
 /** Overlay keys the renderer itself asks for, on top of the engine's keys. */
 export const HIGHLIGHT_KEY = "overlay.highlight";
+/** Contact shadow under a standing piece. Drawn, not themed. */
+export const SHADOW_KEY = "overlay.shadow";
 
 /**
  * Palette lookup for a sprite key: drop the kind prefix, keep the rest.
@@ -151,6 +169,17 @@ export function layout(
     place("highlight", HIGHLIGHT_KEY, h, Z_HIGHLIGHT);
   }
 
+  // A standing piece with nothing beneath it reads as a card floating over the
+  // water. The contact shadow is what puts it *on* a cell — it is the single
+  // biggest depth cue here, more than the perspective itself.
+  if (opts.tilt) {
+    for (const p of view.pieces) {
+      const at = opts.pending && opts.pending.piece === p.id ? opts.pending.at : p.at;
+      place("shadow", SHADOW_KEY, at, Z_SHADOW);
+    }
+    if (view.hazard) place("shadow", SHADOW_KEY, view.hazard.at, Z_SHADOW);
+  }
+
   for (const p of view.pieces) {
     const at = opts.pending && opts.pending.piece === p.id ? opts.pending.at : p.at;
     place("piece", p.spriteKey, at, Z_PIECE, {
@@ -176,14 +205,37 @@ export function layout(
     tileSize: ts,
     highlightColour: theme.colour(paletteKeyFor(HIGHLIGHT_KEY)),
     pixelArt: theme.pixelArt,
+    tilt: opts.tilt ?? 0,
     sprites,
   };
 }
 
 /**
+ * Grid coordinate of the cell an event landed on, read off the element the
+ * browser hit-tested.
+ *
+ * This is the hit test to use. `coordAt` below inverts the layout maths, which
+ * is only valid while the board is an unrotated rectangle — the moment there
+ * is a perspective transform, pixel arithmetic stops describing the screen.
+ * The browser already hit-tests transformed elements correctly, and `paint`
+ * stamps the cell on every element, so asking the element is both simpler and
+ * projection-independent.
+ */
+export function coordFromElement(el: HTMLElement | null): Coord | null {
+  for (let node = el; node; node = node.parentElement) {
+    const { r, c } = node.dataset ?? {};
+    if (r !== undefined && c !== undefined) {
+      return { r: Number(r), c: Number(c) };
+    }
+  }
+  return null;
+}
+
+/**
  * Pixel offset within the board element -> grid coordinate. The inverse of
  * the multiplication in `layout`; kept next to it so the two can't drift.
- * Returns null outside the board.
+ * Returns null outside the board. Only valid for an untilted board — see
+ * `coordFromElement`.
  */
 export function coordAt(
   scene: Scene,
@@ -212,6 +264,20 @@ export function paint(container: HTMLElement, scene: Scene): void {
   container.style.position = "relative";
   container.style.width = `${scene.width}px`;
   container.style.height = `${scene.height}px`;
+
+  // Lay the whole board back as one plane. Children keep their flat grid
+  // positions; only the plane they sit on is rotated, which is why nothing
+  // above this layer has to know the board is tilted.
+  container.style.transformStyle = scene.tilt ? "preserve-3d" : "";
+  container.style.transformOrigin = "center center";
+  // Laying the board back widens its near edge well beyond its layout box.
+  // Shrinking the plane as it tilts keeps the drawn board inside roughly the
+  // footprint the page reserved, so it never crowds the panels beside it.
+  // Scale is part of the transform, so it costs no reflow.
+  const shrink = scene.tilt ? 1 - scene.tilt / 300 : 1;
+  container.style.transform = scene.tilt
+    ? `perspective(${PERSPECTIVE}px) rotateX(${scene.tilt}deg) scale(${shrink.toFixed(3)})`
+    : "";
 
   const existing = new Map<string, HTMLElement>();
   for (const child of Array.from(container.children)) {
@@ -247,9 +313,35 @@ export function paint(container: HTMLElement, scene: Scene): void {
     st.width = `${s.w}px`;
     st.height = `${s.h}px`;
     st.zIndex = String(s.z);
-    st.transform = s.rotation ? `rotate(${s.rotation}deg)` : "";
+
+    // Tiles and highlights lie flat on the plane; pieces and the hazard
+    // hinge up from the back edge of their cell so they face the viewer
+    // instead of reading as decals painted on the water.
+    const standsUp = scene.tilt !== 0 && (s.kind === "piece" || s.kind === "hazard");
+    const isShadow = s.kind === "shadow";
+    const parts: string[] = [];
+    if (standsUp) parts.push(`rotateX(${-scene.tilt}deg)`);
+    if (s.rotation) parts.push(`rotate(${s.rotation}deg)`);
+    st.transform = parts.join(" ");
+    st.transformOrigin = standsUp ? "center bottom" : "";
     st.boxSizing = "border-box";
     st.pointerEvents = s.kind === "tile" ? "auto" : "none";
+
+    if (isShadow) {
+      // An ellipse lying on the plane, hugging the bottom of the cell where
+      // the piece hinges from. Blurred, because a hard edge reads as a hole.
+      st.backgroundImage = "";
+      st.backgroundColor = "rgba(0,0,0,0.42)";
+      st.borderRadius = "50%";
+      st.filter = "blur(4px)";
+      st.width = `${s.w * 0.62}px`;
+      st.height = `${s.h * 0.26}px`;
+      st.left = `${s.x + s.w * 0.19}px`;
+      st.top = `${s.y + s.h * 0.64}px`;
+      st.outline = "";
+      st.opacity = "1";
+      continue;
+    }
 
     // Tiles always get their palette block, with art layered over it: they
     // cover the whole board, so a tile whose art fails to load would leave a

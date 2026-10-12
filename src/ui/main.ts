@@ -25,7 +25,7 @@ import {
   type Move,
 } from "../pond-engine.ts";
 import { BUILT_IN_VARIANTS, VariantRegistry } from "../rules.ts";
-import { coordAt, layout, type Scene } from "../renderer.ts";
+import { coordFromElement, layout, type Scene } from "../renderer.ts";
 import { paint } from "../renderer.ts";
 import {
   Theme,
@@ -56,6 +56,8 @@ interface Session {
   state: GameState;
   selection: Selection;
   theme: Theme;
+  /** Degrees the board is laid back. 0 is the flat top-down view. */
+  tilt: number;
 }
 
 let session: Session = newSession("standard-4p", 1, new Theme(PLAIN_THEME));
@@ -69,6 +71,7 @@ function newSession(variantId: string, seed: number, theme: Theme): Session {
     state: createGame(seed, board, rules),
     selection: NO_SELECTION,
     theme,
+    tilt: session?.tilt ?? 0,
   };
 }
 
@@ -117,6 +120,7 @@ function render(): void {
     // Only worth marking before a piece is held; once one is, the lit cells
     // are the thing to look at.
     movable: selection.piece ? [] : selectablePieces(state),
+    tilt: session.tilt,
   });
   paint($("board"), scene);
   renderHud();
@@ -248,14 +252,7 @@ function showThemeProblems(problems: string[]): void {
 }
 
 function onBoardClick(ev: MouseEvent): void {
-  const board = $("board");
-  const rect = board.getBoundingClientRect();
-  // clientLeft/Top discount the border, which the rect includes.
-  const at = coordAt(
-    scene,
-    ev.clientX - rect.left - board.clientLeft,
-    ev.clientY - rect.top - board.clientTop
-  );
+  const at = coordFromElement(ev.target as HTMLElement | null);
   if (!at) return;
 
   const result = interpretClick(session.state, session.selection, at);
@@ -296,6 +293,13 @@ function wire(): void {
       renderHelp();
     });
   }
+
+  const tilt = $("tilt") as HTMLInputElement;
+  tilt.addEventListener("input", () => {
+    session.tilt = Number(tilt.value);
+    $("tilt-read").textContent = session.tilt ? `${session.tilt}°` : "flat";
+    render();
+  });
 
   $("help-toggle").addEventListener("click", () => {
     const panel = $("help");
