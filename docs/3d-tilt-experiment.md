@@ -42,17 +42,34 @@ full isometric or WebGL renderer with a raycaster behind it.
 `coordAt()` is kept for the flat case and is still tested, but the UI no
 longer uses it.
 
-## What is unresolved
+## Two things the first pass got wrong
 
-- **Layout.** A rotated plane keeps its original layout box, so the near edge
-  spreads wider and the far edge lifts higher than the page reserved. Right
-  now `main.ts` pads the stage proportionally to the tilt, which is a guess
-  that happens to look right rather than a derivation.
+**The slider was unusable.** `render()` sized the stage padding from the
+current tilt, so every step of the drag reflowed the page and moved the slider
+out from under the cursor — with a CSS transition on the padding making it
+worse. This is the same failure as the HUD line that collapsed when empty and
+shifted the buttons: *never let a control's own effect change the layout
+around that control.* The stage padding is now a constant and the plane is
+shrunk inside the transform instead, which costs no reflow. A test drags
+through six tilt values and asserts the slider's rect never moves.
+
+**There was no sense of depth.** A perspective transform alone is not depth:
+it squashes the board without telling you anything is above it. Three cheap
+fixes did most of the work — a blurred contact shadow under every standing
+piece (the single biggest cue, because it puts a piece *on* a cell rather than
+over it), a shorter viewer distance (1200px read as merely squashed; 800px
+recedes), and a radial gradient behind the plane to act as a horizon.
+
+## What is still unresolved
+
 - **Depth at the back.** At high tilt the far row's pieces crowd into the home
   tiles behind them. Real isometric art with proper depth sorting would fix
   this; billboarded sprites cannot.
 - **No elevation.** Everything is on one plane. Pieces do not sit *on* tiles,
   they hinge from them, which reads fine in motion but is not real 3D.
+- **The shadow is drawn, not themed.** It is a CSS ellipse under
+  `overlay.shadow`, so a pack cannot restyle it. If packs ever want their own,
+  it should become a real sprite key.
 - **Mobile.** Untested. A tilted board at a phone width may be unusable.
 
 ## Verdict

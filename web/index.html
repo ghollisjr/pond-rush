@@ -20,7 +20,23 @@
   }
   /* A rotated plane keeps its old layout box, so the top of the board lifts
      out of it. Reserve the room rather than letting it collide with the HUD. */
-  #board-stage { flex: none; transition: padding 120ms linear; }
+  /* A rotated plane keeps its original layout box, so the near edge spreads
+     wider and the far edge lifts higher than the box accounts for. The room
+     is reserved once, as a constant: sizing it to the current tilt reflowed
+     the page on every slider step, which moved the slider out from under the
+     cursor and broke the drag. Nothing here may depend on the tilt. */
+  #board-stage {
+    flex: none;
+    /* Vertical only. The shrink in the transform keeps the near edge within
+       about its own width, so what little spills sideways lands in the gap
+       between columns — adding horizontal padding here only pushed the help
+       panel onto its own row. */
+    padding: 64px 0 24px;
+    /* A horizon behind the plane: the far water reads as further away. */
+    background:
+      radial-gradient(120% 90% at 50% 18%, #16202b 0%, #0d1116 60%);
+    border-radius: 8px;
+  }
   #board {
     background: var(--panel);
     border: 1px solid var(--edge);

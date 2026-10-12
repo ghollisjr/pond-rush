@@ -207,6 +207,23 @@ describe("paint", () => {
     });
   });
 
+  it("puts a contact shadow under every standing piece, and none when flat", () => {
+    withFakeDom((c) => {
+      const v = view(game);
+      paintInto(c, layout(v, theme, { tilt: 50 }));
+      const shadows = c.children.filter((el) => el.dataset.kind === "shadow");
+      // One per piece. A piece with nothing under it reads as a floating card.
+      expect(shadows).toHaveLength(v.pieces.length);
+      // It lies on the plane rather than standing up with the piece.
+      expect(shadows[0].style.transform).toBe("");
+      expect(shadows[0].style.borderRadius).toBe("50%");
+      expect(shadows[0].style.pointerEvents).toBe("none");
+
+      paintInto(c, layout(v, theme));
+      expect(c.children.some((el) => el.dataset.kind === "shadow")).toBe(false);
+    });
+  });
+
   it("leaves everything flat at tilt 0", () => {
     withFakeDom((c) => {
       paintInto(c, layout(view(game), theme));

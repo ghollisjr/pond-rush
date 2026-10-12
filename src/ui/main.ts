@@ -122,14 +122,6 @@ function render(): void {
     movable: selection.piece ? [] : selectablePieces(state),
     tilt: session.tilt,
   });
-  // A rotated plane keeps its original layout box, so the near edge spreads
-  // wider and the far edge lifts higher than the box accounts for. Reserve the
-  // room here rather than in the renderer, which has no business knowing how
-  // the page around it is laid out.
-  $("board-stage").style.padding = session.tilt
-    ? `${Math.round(session.tilt * 1.7)}px ${Math.round(session.tilt * 2.2)}px`
-    : "0";
-
   paint($("board"), scene);
   renderHud();
   renderHelp();
