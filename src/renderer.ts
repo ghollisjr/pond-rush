@@ -54,6 +54,12 @@ export interface Scene {
   highlightColour: string;
   /** Scale this pack's art with hard pixel edges rather than smoothing. */
   pixelArt: boolean;
+  /**
+   * Degrees to lay the board back from the viewer. 0 is the flat top-down
+   * board. Purely presentational — the engine knows nothing about it, and
+   * every coordinate in this scene is still the flat grid position.
+   */
+  tilt: number;
   sprites: Sprite[];
 }
 
@@ -71,6 +77,8 @@ export interface LayoutOptions {
    * `highlights` — the renderer still knows no rules.
    */
   pending?: { piece: PieceId; at: Coord } | null;
+  /** Lay the board back by this many degrees. 0, the default, is flat. */
+  tilt?: number;
 }
 
 // Z-bands. Pieces sit above their tile; highlights sit above pieces, because
@@ -78,6 +86,9 @@ export interface LayoutOptions {
 // cell drawn under an opaque piece is a lit cell nobody can see. Highlights
 // are translucent, so the piece underneath still reads through the tint. The
 // hazard stays on top, so a piece about to be taken is never hidden under it.
+/** Viewer distance for the tilted board. Lower is a more extreme wide angle. */
+const PERSPECTIVE = 1200;
+
 const Z_TILE = 0;
 const Z_PIECE = 1;
 const Z_HIGHLIGHT = 2;
@@ -176,14 +187,37 @@ export function layout(
     tileSize: ts,
     highlightColour: theme.colour(paletteKeyFor(HIGHLIGHT_KEY)),
     pixelArt: theme.pixelArt,
+    tilt: opts.tilt ?? 0,
     sprites,
   };
 }
 
 /**
+ * Grid coordinate of the cell an event landed on, read off the element the
+ * browser hit-tested.
+ *
+ * This is the hit test to use. `coordAt` below inverts the layout maths, which
+ * is only valid while the board is an unrotated rectangle — the moment there
+ * is a perspective transform, pixel arithmetic stops describing the screen.
+ * The browser already hit-tests transformed elements correctly, and `paint`
+ * stamps the cell on every element, so asking the element is both simpler and
+ * projection-independent.
+ */
+export function coordFromElement(el: HTMLElement | null): Coord | null {
+  for (let node = el; node; node = node.parentElement) {
+    const { r, c } = node.dataset ?? {};
+    if (r !== undefined && c !== undefined) {
+      return { r: Number(r), c: Number(c) };
+    }
+  }
+  return null;
+}
+
+/**
  * Pixel offset within the board element -> grid coordinate. The inverse of
  * the multiplication in `layout`; kept next to it so the two can't drift.
- * Returns null outside the board.
+ * Returns null outside the board. Only valid for an untilted board — see
+ * `coordFromElement`.
  */
 export function coordAt(
   scene: Scene,
@@ -212,6 +246,15 @@ export function paint(container: HTMLElement, scene: Scene): void {
   container.style.position = "relative";
   container.style.width = `${scene.width}px`;
   container.style.height = `${scene.height}px`;
+
+  // Lay the whole board back as one plane. Children keep their flat grid
+  // positions; only the plane they sit on is rotated, which is why nothing
+  // above this layer has to know the board is tilted.
+  container.style.transformStyle = scene.tilt ? "preserve-3d" : "";
+  container.style.transformOrigin = "center center";
+  container.style.transform = scene.tilt
+    ? `perspective(${PERSPECTIVE}px) rotateX(${scene.tilt}deg)`
+    : "";
 
   const existing = new Map<string, HTMLElement>();
   for (const child of Array.from(container.children)) {
@@ -247,7 +290,16 @@ export function paint(container: HTMLElement, scene: Scene): void {
     st.width = `${s.w}px`;
     st.height = `${s.h}px`;
     st.zIndex = String(s.z);
-    st.transform = s.rotation ? `rotate(${s.rotation}deg)` : "";
+
+    // Tiles and highlights lie flat on the plane; pieces and the hazard
+    // hinge up from the back edge of their cell so they face the viewer
+    // instead of reading as decals painted on the water.
+    const standsUp = scene.tilt !== 0 && (s.kind === "piece" || s.kind === "hazard");
+    const parts: string[] = [];
+    if (standsUp) parts.push(`rotateX(${-scene.tilt}deg)`);
+    if (s.rotation) parts.push(`rotate(${s.rotation}deg)`);
+    st.transform = parts.join(" ");
+    st.transformOrigin = standsUp ? "center bottom" : "";
     st.boxSizing = "border-box";
     st.pointerEvents = s.kind === "tile" ? "auto" : "none";
 

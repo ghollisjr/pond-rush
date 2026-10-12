@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { expect } from "./expect.ts";
-import { layout, paint } from "../src/renderer.ts";
+import { coordFromElement, layout, paint } from "../src/renderer.ts";
 import { Theme, type LoadedTheme } from "../src/theme.ts";
 import { applyMove, createGame, legalMoves, view, type Move } from "../src/pond-engine.ts";
 import { BOARD_4P, OFFICIAL_RULES } from "../src/rules.ts";
@@ -18,6 +18,9 @@ class FakeEl {
   appendChild(child: FakeEl): void {
     child.parent = this;
     this.children.push(child);
+  }
+  get parentElement(): FakeEl | null {
+    return this.parent;
   }
   remove(): void {
     if (this.parent) {
@@ -186,6 +189,32 @@ describe("paint", () => {
     });
   });
 
+  it("lays the board back as one plane and stands the pieces up", () => {
+    withFakeDom((c) => {
+      paintInto(c, layout(view(game), theme, { tilt: 50 }));
+
+      expect(c.style.transform.includes("rotateX(50deg)")).toBe(true);
+      expect(c.style.transform.includes("perspective(")).toBe(true);
+      expect(c.style.transformStyle).toBe("preserve-3d");
+
+      // Tiles lie flat on the plane; pieces hinge up from the cell's back edge
+      // so they face the viewer instead of reading as decals on the water.
+      const tile = c.children.find((el) => el.dataset.kind === "tile")!;
+      const piece = c.children.find((el) => el.dataset.kind === "piece")!;
+      expect(tile.style.transform).toBe("");
+      expect(piece.style.transform.includes("rotateX(-50deg)")).toBe(true);
+      expect(piece.style.transformOrigin).toBe("center bottom");
+    });
+  });
+
+  it("leaves everything flat at tilt 0", () => {
+    withFakeDom((c) => {
+      paintInto(c, layout(view(game), theme));
+      expect(c.style.transform).toBe("");
+      for (const el of c.children) expect(el.style.transform).toBe("");
+    });
+  });
+
   it("rings a movable piece and a held one differently", () => {
     withFakeDom((c) => {
       const v = view(game);
@@ -214,6 +243,44 @@ describe("paint", () => {
         const expected = el.dataset.kind === "tile" ? "auto" : "none";
         expect(el.style.pointerEvents).toBe(expected);
       }
+    });
+  });
+});
+
+describe("coordFromElement", () => {
+  const game = createGame(4, BOARD_4P, OFFICIAL_RULES);
+
+  // The hit test must not depend on pixel arithmetic: once the board is
+  // tilted, screen position no longer inverts to a grid cell. The browser has
+  // already hit-tested the element, so the cell is read off it instead.
+  it("reads the cell off the element the browser hit", () => {
+    withFakeDom((c) => {
+      paintInto(c, layout(view(game), theme, { tilt: 45 }));
+      const tile = c.children.find((el) => el.dataset.kind === "tile")!;
+      expect(coordFromElement(tile as unknown as HTMLElement)).toEqual({
+        r: Number(tile.dataset.r),
+        c: Number(tile.dataset.c),
+      });
+    });
+  });
+
+  it("walks up to the nearest element that carries a cell", () => {
+    withFakeDom((c) => {
+      paintInto(c, layout(view(game), theme));
+      const tile = c.children.find((el) => el.dataset.kind === "tile")!;
+      const child = new FakeEl();
+      tile.appendChild(child);
+      expect(coordFromElement(child as unknown as HTMLElement)).toEqual({
+        r: Number(tile.dataset.r),
+        c: Number(tile.dataset.c),
+      });
+    });
+  });
+
+  it("returns null when nothing in the chain is a cell", () => {
+    expect(coordFromElement(null)).toBe(null);
+    withFakeDom(() => {
+      expect(coordFromElement(new FakeEl() as unknown as HTMLElement)).toBe(null);
     });
   });
 });

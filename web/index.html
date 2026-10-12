@@ -18,6 +18,9 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
+  /* A rotated plane keeps its old layout box, so the top of the board lifts
+     out of it. Reserve the room rather than letting it collide with the HUD. */
+  #board-stage { flex: none; transition: padding 120ms linear; }
   #board {
     background: var(--panel);
     border: 1px solid var(--edge);
@@ -66,6 +69,8 @@
   .row + .row { margin-top: 10px; }
   label { font-size: 13px; opacity: 0.75; }
   #seed { width: 72px; }
+  #tilt { width: 120px; }
+  #tilt-read { font-size: 13px; opacity: 0.7; min-width: 3.5em; }
   #rescue { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
   /* Help lives beside the board rather than over it: it explains what is on
@@ -107,7 +112,7 @@
   }
 </style>
 
-<div id="board"></div>
+<div id="board-stage"><div id="board"></div></div>
 
 <aside>
   <h1>POND RUSH — HOT SEAT</h1>
@@ -125,6 +130,11 @@
       <button id="pass">Pass</button>
       <button id="undo">Undo</button>
       <button id="help-toggle" aria-expanded="true">Help</button>
+    </div>
+    <div class="row">
+      <label for="tilt">tilt</label>
+      <input id="tilt" type="range" min="0" max="65" step="5" value="0" />
+      <span id="tilt-read">flat</span>
     </div>
     <div class="row" id="rescue" hidden></div>
     <div class="row"><span id="hint"></span></div>

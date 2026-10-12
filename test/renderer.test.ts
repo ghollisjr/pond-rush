@@ -155,6 +155,18 @@ describe("layout", () => {
     expect(spun.some((s) => s.rotation !== 0)).toBe(true);
   });
 
+  it("carries the tilt through to the scene, flat by default", () => {
+    const v = view(game);
+    expect(layout(v, makeTheme()).tilt).toBe(0);
+    expect(layout(v, makeTheme(), { tilt: 45 }).tilt).toBe(45);
+    // Tilt is presentational: it must not move a single grid position.
+    const flat = layout(v, makeTheme());
+    const tilted = layout(v, makeTheme(), { tilt: 45 });
+    expect(tilted.sprites.map((s) => [s.x, s.y])).toEqual(
+      flat.sprites.map((s) => [s.x, s.y])
+    );
+  });
+
   it("is pure — two layouts of the same state are identical", () => {
     const v = view(game);
     expect(layout(v, makeTheme()).sprites).toEqual(layout(v, makeTheme()).sprites);
