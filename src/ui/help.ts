@@ -164,12 +164,16 @@ export function explainNow(
   } else if (face.kind === "leap") {
     headline = w.leap;
     detail =
-      `Jump one ${w.piece} over a neighbouring ${w.piece} into the empty ` +
-      `space directly beyond` +
+      `Jump one ${w.piece} two spaces into the empty space beyond the cell ` +
+      `next to it` +
       `${state.rules.leap.diagonals ? ", diagonals included" : ""}. ` +
-      `${state.rules.leap.overOwnOnly
-        ? `Only your own ${w.pieces} may be jumped.`
-        : `Anyone's ${w.pieces} will do — opponents are a staircase.`}` +
+      `${state.rules.leap.overGaps
+        ? `Gap Jump is on: the cell you clear may be empty, so you do not ` +
+          `need a neighbour to jump over.`
+        : state.rules.leap.overOwnOnly
+          ? `That cell must hold one of your own ${w.pieces}.`
+          : `That cell must hold a ${w.piece} — anyone's will do, so ` +
+            `opponents are a staircase.`}` +
       `${state.rules.leap.canLeapHazard ? "" : ` You may not jump the ${w.hazard}.`}`;
     if (state.rules.leap.chaining) {
       detail += ` A landing that sets up another jump lets you keep going.`;
@@ -312,12 +316,18 @@ export function rulesSheet(state: GameState, theme: Theme): HelpSection[] {
     {
       title: w.leap,
       paras: [
-        `Jump a ${w.piece} over a neighbour into the empty space beyond` +
+        `Jump a ${w.piece} two spaces, landing on the empty space beyond the ` +
+          `cell next to it` +
           `${r.leap.diagonals ? ", diagonally too" : ""}. ` +
           (r.leap.chaining
             ? `Keep jumping with that same ${w.piece} as long as jumps are ` +
               `there, and stop whenever you like.`
             : `One jump only.`),
+        r.leap.overGaps
+          ? `Gap Jump: the cell you clear may be empty as well as occupied, ` +
+            `so a one-space gap is jumpable with nothing in it. Open water ` +
+            `becomes a road, and a leap face is never wasted.`
+          : `The cell you clear must hold a ${w.piece}.`,
         r.leap.declineToStep
           ? `You may always decline to jump and move one ${w.piece} a single ` +
             `space instead — it is a free choice, not a fallback.`

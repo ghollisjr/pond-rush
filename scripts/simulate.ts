@@ -23,7 +23,7 @@ import {
 import { VariantRegistry, validate } from "../src/rules.ts";
 
 const reg = new VariantRegistry();
-const VARIANTS = ["standard-4p", "standard-2p", "triple-trouble", "hop-share", "stork-escape", "house"];
+const VARIANTS = ["standard-4p", "standard-2p", "triple-trouble", "hop-share", "stork-escape", "gap-jump", "house"];
 const GAMES = Number(process.argv[2] ?? 200);
 
 function chebyshev(a: { r: number; c: number }, b: { r: number; c: number }): number {

@@ -388,8 +388,15 @@ function collectLeaps(
     const land = add(from, d, 2);
 
     const hopped = occ.get(key(over));
-    if (!hopped) continue;
-    if (state.rules.leap.overOwnOnly && hopped.owner !== piece.owner) continue;
+    if (!hopped) {
+      // Gap Jump: the cell being cleared may hold nothing. A leap spans
+      // exactly two cells, so the gap is always one space across — which is
+      // the whole of the rule. Off-board cells count as gaps too, so a board
+      // drawn with a hole in it can be crossed rather than walling players in.
+      if (!state.rules.leap.overGaps) continue;
+    } else if (state.rules.leap.overOwnOnly && hopped.owner !== piece.owner) {
+      continue;
+    }
     if (state.hazard && eq(state.hazard, over) && !state.rules.leap.canLeapHazard) {
       continue;
     }

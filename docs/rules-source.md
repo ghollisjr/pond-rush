@@ -93,6 +93,31 @@ all players. Implemented as `BOARD_3P`, whose home cells use `owner: "any"`.
 The booklet also explicitly encourages players to change the rules and invent
 their own — which is the entire justification for the variant system.
 
+## Group variants (not from the booklet)
+
+These come from people, not the rule booklet. Kept separate so nobody mistakes
+them for published rules.
+
+**Gap Jump.** `[PROVISIONAL]` The leap may clear an *empty* space as well as a
+piece: you do not need a neighbour to jump over, only a free landing two cells
+away. Implemented as `leap.overGaps`.
+
+Provenance: recalled by a member of the group who had played the physical game,
+who said they had nothing written down and that this was "the only important
+one". Nobody has checked it against the booklet, and the booklet text
+transcribed above says the opposite — that you jump "over one neighbouring
+piece". So this is either a house rule, a misremembering, or a detail the
+booklet leaves out. Treat it as a variant, not a correction, until somebody
+verifies it against the real thing; if you do, update this and drop the marker.
+
+Two readings were possible. "Gap" could mean a hole in the board rather than an
+empty space, but none of the three boards has an interior unplayable cell with
+playable cells on both sides, so that reading would do nothing at all. The
+implementation is permissive and satisfies both: the cleared cell may be empty
+water *or* off-board, which also means a board drawn with a hole in it can be
+crossed rather than walling a player in. The hazard still cannot be jumped, and
+the landing cell must still be free.
+
 ## Open questions
 
 1. **Board dimensions.** The biggest unknown, and the one that affects

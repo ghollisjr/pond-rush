@@ -228,6 +228,11 @@ export interface RuleSet {
     /** You may always decline to jump and move one piece a single space. */
     declineToStep: boolean;
     canLeapHazard: boolean;
+    /**
+     * [PROVISIONAL] Jump over an empty space as well as over a piece — the
+     * cell being cleared need hold nothing at all. See the Gap Jump variant.
+     */
+    overGaps: boolean;
   };
 
   hazard: {
@@ -273,6 +278,7 @@ export const OFFICIAL_RULES: RuleSet = {
     overOwnOnly: false,
     declineToStep: true,
     canLeapHazard: false,
+    overGaps: false,
   },
   hazard: {
     enabled: true,
@@ -353,6 +359,16 @@ export const BUILT_IN_VARIANTS: VariantDef[] = [
       "a player out of the game with nothing they can do about it.",
     extends: "standard-4p",
     rules: { rescue: { enabled: true } },
+  },
+  {
+    id: "gap-jump",
+    name: "Gap Jump",
+    description:
+      "The leap may clear an empty space as well as a piece, so you can jump " +
+      "a one-space gap with nothing in it. Makes a leap face always useful " +
+      "and turns open water into a road.",
+    extends: "standard-4p",
+    rules: { leap: { overGaps: true } },
   },
   {
     id: "house",
