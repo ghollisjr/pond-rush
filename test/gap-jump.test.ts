@@ -110,3 +110,49 @@ describe("Gap Jump", () => {
     expect(text(OFFICIAL_RULES).includes("must hold a piece")).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Chaining over gaps is unbounded, so it is not allowed. This guards the fix:
+// without it the opening position offers 12,500 moves and the simulator runs
+// out of memory by mid-game.
+// ---------------------------------------------------------------------------
+
+describe("Gap Jump chaining", () => {
+  function midGame(rules: typeof OFFICIAL_RULES, turns: number): GameState {
+    let s = createGame(3, BOARD_4P, rules);
+    for (let t = 0; t < turns && s.phase !== "finished"; t++) {
+      s = applyMove(s, { kind: "roll" });
+      const opts = legalMoves(s).filter((m) => m.kind !== "roll" && m.kind !== "pass");
+      s = applyMove(s, opts.length ? opts[Math.floor(opts.length / 2)] : { kind: "pass" });
+    }
+    return s;
+  }
+
+  it("keeps the move list in the same order of magnitude as the standard game", () => {
+    for (const turns of [0, 10, 25, 40]) {
+      const plain = legalMoves(midGame(OFFICIAL_RULES, turns)).length;
+      const gap = legalMoves(midGame(GAP_RULES, turns)).length;
+      // Generous, but it catches a combinatorial blow-up rather than growth.
+      expect(gap).toBeLessThanOrEqual(Math.max(plain, 50) * 20);
+    }
+  });
+
+  it("ends the chain at the hop that cleared a gap", () => {
+    const s = leapState(GAP_RULES);
+    const occupied = new Set(
+      s.pieces.filter((p) => p.at && p.state !== "captured").map((p) => `${p.at!.r},${p.at!.c}`)
+    );
+
+    for (const m of leaps(s)) {
+      const from = s.pieces.find((p) => p.id === m.piece)!.at!;
+      const cells = [from, ...m.path];
+      for (let i = 0; i + 1 < cells.length; i++) {
+        const over = { r: (cells[i].r + cells[i + 1].r) / 2, c: (cells[i].c + cells[i + 1].c) / 2 };
+        const clearedAPiece = occupied.has(`${over.r},${over.c}`);
+        const isLastHop = i + 2 === cells.length;
+        // A gap hop may only ever be the final hop of a chain.
+        if (!clearedAPiece) expect(isLastHop).toBe(true);
+      }
+    }
+  });
+});

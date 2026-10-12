@@ -110,6 +110,16 @@ piece". So this is either a house rule, a misremembering, or a detail the
 booklet leaves out. Treat it as a variant, not a correction, until somebody
 verifies it against the real thing; if you do, update this and drop the marker.
 
+**A gap hop does not chain.** Only a piece you jump sets up another jump. This
+is an interpretation, not something the group said, and it was forced: chaining
+over empty cells is unbounded, because every landing in open water offers eight
+more. Enumerating them produced 12,500 legal moves from the opening position
+and ran the simulator out of memory by mid-game, and it let a piece cross the
+entire pond in a single turn, which cannot be what was meant by "jump over
+gaps". With the restriction the opening position offers 80 moves against the
+standard game's 45. If the group did mean the unbounded version, it needs a
+move cap before it can ship.
+
 Two readings were possible. "Gap" could mean a hole in the board rather than an
 empty space, but none of the three boards has an interior unplayable cell with
 playable cells on both sides, so that reading would do nothing at all. The

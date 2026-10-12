@@ -388,7 +388,8 @@ function collectLeaps(
     const land = add(from, d, 2);
 
     const hopped = occ.get(key(over));
-    if (!hopped) {
+    const overGap = !hopped;
+    if (overGap) {
       // Gap Jump: the cell being cleared may hold nothing. A leap spans
       // exactly two cells, so the gap is always one space across — which is
       // the whole of the rule. Off-board cells count as gaps too, so a board
@@ -409,6 +410,14 @@ function collectLeaps(
 
     // Settling on a scoring cell ends the chain.
     if (homeFor(state, land, piece.owner) !== null) continue;
+
+    // A gap hop ends the chain. Chaining over empty cells is unbounded —
+    // every landing offers eight more in open water — so it both explodes
+    // the move list (12,500 moves from the opening position, and out of
+    // memory by mid-game) and lets a piece cross the whole pond in one turn.
+    // Chains over pieces stay as they were: a piece to jump is what limits
+    // them, which is the thing a gap does not supply.
+    if (overGap) continue;
 
     if (state.rules.leap.chaining) {
       visited.add(key(land));

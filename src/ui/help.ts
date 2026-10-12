@@ -169,7 +169,7 @@ export function explainNow(
       `${state.rules.leap.diagonals ? ", diagonals included" : ""}. ` +
       `${state.rules.leap.overGaps
         ? `Gap Jump is on: the cell you clear may be empty, so you do not ` +
-          `need a neighbour to jump over.`
+          `need a neighbour to jump over — but clearing a gap ends the chain.`
         : state.rules.leap.overOwnOnly
           ? `That cell must hold one of your own ${w.pieces}.`
           : `That cell must hold a ${w.piece} — anyone's will do, so ` +
@@ -325,8 +325,9 @@ export function rulesSheet(state: GameState, theme: Theme): HelpSection[] {
             : `One jump only.`),
         r.leap.overGaps
           ? `Gap Jump: the cell you clear may be empty as well as occupied, ` +
-            `so a one-space gap is jumpable with nothing in it. Open water ` +
-            `becomes a road, and a leap face is never wasted.`
+            `so a one-space gap is jumpable with nothing in it — a leap face ` +
+            `is never wasted. Clearing a gap ends the chain, though: only a ` +
+            `${w.piece} you jump sets up another jump.`
           : `The cell you clear must hold a ${w.piece}.`,
         r.leap.declineToStep
           ? `You may always decline to jump and move one ${w.piece} a single ` +
