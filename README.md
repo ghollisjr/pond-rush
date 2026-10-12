@@ -27,9 +27,20 @@ Every push to `main` runs the suite and the typechecker, bundles
 validates can still be unplayable, so the least CI can do is refuse to ship a
 build that does not pass.
 
-`web/app.js` is built, not committed. Everything the page loads is referenced
-by relative path, which is what lets it serve from a project subpath
-(`/pond-rush/`) without a base-URL setting.
+`npm run build` writes `dist/`: `index.html`, the default theme pack, and the
+bundle under a content-hashed name (`app.<hash>.js`). The hash is why a deploy
+cannot be served half-stale — GitHub Pages caches assets for ten minutes, and
+a plain `app.js` means a new page can load an old bundle. Hashing does not make
+`index.html` itself fresh (Pages caches that too, and the headers are not
+ours), but it guarantees the pair is always consistent and that new HTML never
+reuses a cached bundle.
+
+Dev is unaffected: `npm run dev` serves `web/` with a plain `app.js`, which is
+what `web/index.html` references. The build rewrites that reference, and fails
+rather than publishing a page that loads nothing if it cannot find it.
+
+Everything the page loads is referenced by relative path, which is what lets it
+serve from a project subpath (`/pond-rush/`) without a base-URL setting.
 
 ## Running it
 

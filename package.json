@@ -12,7 +12,7 @@
     "simulate": "node --experimental-strip-types scripts/simulate.ts",
     "typecheck": "tsc --noEmit",
     "dev": "esbuild src/ui/main.ts --bundle --format=esm --outfile=web/app.js --servedir=web --serve=8000 --watch",
-    "build": "esbuild src/ui/main.ts --bundle --format=esm --minify --outfile=web/app.js"
+    "build": "node --experimental-strip-types scripts/build-web.ts"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
