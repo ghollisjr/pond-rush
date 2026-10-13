@@ -31,6 +31,11 @@ So: take your turn, press **Copy link**, send it. The next player opens it and
 sees the exact board you left. Turn-based, so latency is irrelevant, and
 nothing needs hosting.
 
+The link is made when you ask for it. The address bar does not carry the game
+and does not rewrite itself as you play — resuming is `localStorage`'s job.
+When you are in an online room the URL names the room instead, so refreshing
+or sharing it does the obvious thing.
+
 ```
 ghollisjr.github.io/pond-rush/#g=v1.standard-4p.1.ACwAAAAIAAAALgAA
                                   └ format

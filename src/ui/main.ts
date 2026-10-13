@@ -331,6 +331,7 @@ async function joinGame(code: string): Promise<void> {
 
 function enterRoom(roomId: string, seat: Seat): void {
   net = { roomId, seat, room: emptyRoomView(roomId), timer: null };
+  publish();
   void poll().then(startPolling);
   renderOnline();
   render();
@@ -339,6 +340,7 @@ function enterRoom(roomId: string, seat: Seat): void {
 function leaveRoom(): void {
   stopPolling();
   net = null;
+  publish();
   notify("Left the game. The board is yours again.");
   renderOnline();
   render();
@@ -383,14 +385,29 @@ function currentLink(): string {
   });
 }
 
-/** Put the game in the URL and in local storage. Never throws. */
+/**
+ * Keep the address bar describing the game, and save it locally.
+ *
+ * The URL names the *room* when online and is left clean otherwise. It used
+ * to carry the whole local game and rewrite itself on every move, which was
+ * wrong twice over: during an online game it still showed a stale local link,
+ * so copying the URL handed someone an empty game instead of the room; and
+ * rewriting the hash at boot swallowed `#room=` invites before they could be
+ * read. Resuming is localStorage's job and always was — a link is something
+ * you ask for, with the button.
+ */
 function publish(): void {
-  const code = currentLink();
   try {
-    history.replaceState(null, "", `#g=${code}`);
+    const want = net ? `#room=${net.roomId}` : "";
+    if (location.hash !== want) {
+      history.replaceState(null, "", want || location.pathname + location.search);
+    }
   } catch {
-    // Some embeddings disallow replaceState. The link button still works.
+    // Some embeddings disallow replaceState. The link buttons still work.
   }
+  // A room's moves live on the server; saving them here would resurrect a
+  // stale copy as a local game on the next visit.
+  if (net) return;
   try {
     saveGame(localStorage, {
       id: `${session.variantId}.${session.seed}`,
@@ -531,6 +548,10 @@ function renderHud(): void {
   ($("undo") as HTMLButtonElement).disabled =
     state.history.length === 0 || net !== null;
   ($("new") as HTMLButtonElement).disabled = net !== null;
+  // One link concept at a time. In a room the invite is the link that means
+  // anything; a game link alongside it is just an invitation to send the
+  // wrong one.
+  $("share").hidden = net !== null;
   ($("variant") as HTMLSelectElement).disabled = net !== null;
   ($("seed") as HTMLInputElement).disabled = net !== null;
 
@@ -675,7 +696,7 @@ function wire(): void {
     const url = `${location.origin}${location.pathname}#g=${currentLink()}`;
     try {
       await navigator.clipboard.writeText(url);
-      notify("Link copied — send it to the next player.");
+      notify("Link copied. It carries this game — send it to the next player.");
     } catch {
       // Clipboard access is refused in plenty of contexts. Showing the link
       // is worse than copying it, but much better than silently failing.

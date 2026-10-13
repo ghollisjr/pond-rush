@@ -70,6 +70,16 @@ off whatever the browser hit-tested. That is projection-independent and is
 what an isometric or WebGL renderer would use too. Do not route clicks back
 through pixel arithmetic.
 
+**The address bar describes the current thing, and nothing else writes to
+it.** The URL carried the whole local game and rewrote itself on every move,
+which was wrong twice: during an online game it still showed a stale local
+link, so copying the URL handed someone an empty game rather than the room;
+and rewriting the hash at boot swallowed `#room=` invites before the handler
+could read them. Now it names the room when online and is clean otherwise.
+Resuming is `localStorage`'s job; a shareable game link is something the
+player asks for with a button. Only one link control is ever visible — in a
+room, the invite is the only link that means anything.
+
 **A control must never change the layout around itself.** The tilt slider
 first sized the board's stage from the current tilt, so dragging it reflowed
 the page and moved the slider out from under the cursor. The HUD's face line
