@@ -220,6 +220,18 @@ describe("cross-origin and plumbing", () => {
     expect((await from("http://localhost:8000")).headers.get("vary")).toBe("origin");
   });
 
+  it("says whether storage is durable, not just that it is up", async () => {
+    // A server on per-isolate memory looks identical to a working one until
+    // rooms start vanishing between requests. The memory store reports why
+    // it was chosen, so this must match on the prefix.
+    const live = await json(await call(deps({ storage: "deno-kv" }), "GET", "/api/health"));
+    expect(live.durable).toBe(true);
+    for (const kind of ["memory", "memory (openKv missing)"]) {
+      const out = await json(await call(deps({ storage: kind }), "GET", "/api/health"));
+      expect(out.durable).toBe(false);
+    }
+  });
+
   it("has a health check and a 404", async () => {
     const d = deps();
     expect((await json(await call(d, "GET", "/api/health"))).ok).toBe(true);

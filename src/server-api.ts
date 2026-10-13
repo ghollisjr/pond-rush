@@ -248,7 +248,9 @@ async function route(req: Request, deps: ServerDeps): Promise<Response> {
       return reply({
         ok: true,
         storage: deps.storage ?? "unknown",
-        durable: (deps.storage ?? "") !== "memory",
+        // Prefix, not equality: the memory store reports why it was chosen,
+        // so "memory (openKv missing)" must still count as not durable.
+        durable: !(deps.storage ?? "").startsWith("memory"),
       });
     }
 
