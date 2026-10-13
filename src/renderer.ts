@@ -44,6 +44,8 @@ export interface Sprite {
   selected?: boolean;
   /** Piece the player could pick up right now. Drawn as an invitation. */
   movable?: boolean;
+  /** A legal cell that is probably a mistake. Marked, never hidden. */
+  warn?: boolean;
 }
 
 export interface Scene {
@@ -54,6 +56,8 @@ export interface Scene {
   highlightColour: string;
   /** Scale this pack's art with hard pixel edges rather than smoothing. */
   pixelArt: boolean;
+  /** Colour for a lit cell the player probably does not want. */
+  warnColour: string;
   /**
    * Degrees to lay the board back from the viewer. 0 is the flat top-down
    * board. Purely presentational — the engine knows nothing about it, and
@@ -79,6 +83,11 @@ export interface LayoutOptions {
   pending?: { piece: PieceId; at: Coord } | null;
   /** Lay the board back by this many degrees. 0, the default, is flat. */
   tilt?: number;
+  /**
+   * Cells that are legal but inadvisable — lit like any other, in a colour
+   * that says so. The caller decides what counts; the renderer only paints.
+   */
+  warnings?: Coord[];
 }
 
 // Z-bands. Pieces sit above their tile; highlights sit above pieces, because
@@ -165,8 +174,11 @@ export function layout(
 
   for (const t of view.tiles) place("tile", t.tileKey, t.at, Z_TILE);
 
+  const warned = new Set((opts.warnings ?? []).map((c) => `${c.r},${c.c}`));
   for (const h of opts.highlights ?? []) {
-    place("highlight", HIGHLIGHT_KEY, h, Z_HIGHLIGHT);
+    place("highlight", HIGHLIGHT_KEY, h, Z_HIGHLIGHT, {
+      warn: warned.has(`${h.r},${h.c}`),
+    });
   }
 
   // A standing piece with nothing beneath it reads as a card floating over the
@@ -205,6 +217,7 @@ export function layout(
     tileSize: ts,
     highlightColour: theme.colour(paletteKeyFor(HIGHLIGHT_KEY)),
     pixelArt: theme.pixelArt,
+    warnColour: theme.colour("warning", "#e0564a"),
     tilt: opts.tilt ?? 0,
     sprites,
   };
@@ -348,7 +361,8 @@ export function paint(container: HTMLElement, scene: Scene): void {
     // hole. Pieces and the hazard get the block only when they have no art —
     // their sprites are shapes with transparent corners, and a colour square
     // behind one would show as a square, not a piece.
-    st.backgroundColor = s.kind === "tile" || !s.src ? s.colour : "";
+    st.backgroundColor =
+      s.warn ? scene.warnColour : s.kind === "tile" || !s.src ? s.colour : "";
     if (s.src) {
       st.backgroundImage = `url("${s.src}")`;
       st.backgroundSize = "100% 100%";
@@ -360,7 +374,8 @@ export function paint(container: HTMLElement, scene: Scene): void {
       st.imageRendering = "";
     }
 
-    st.opacity = s.kind === "highlight" ? "0.55" : "1";
+    // A warning needs to carry at a glance, so it sits a little heavier.
+    st.opacity = s.kind === "highlight" ? (s.warn ? "0.68" : "0.55") : "1";
 
     // The board is the only control surface, so it has to say what can be
     // clicked: a held piece gets a solid ring, one that could be picked up a

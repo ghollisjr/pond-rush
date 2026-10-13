@@ -124,6 +124,26 @@ export function pendingAt(sel: Selection): Coord | null {
 }
 
 /**
+ * Of the cells lit for a hazard placement, the ones holding your own pieces.
+ *
+ * Taking your own is legal — the rules say "any space occupied by a piece" —
+ * and it is never forced, so it is nearly always a mistake rather than a
+ * choice. The board marks them differently instead of hiding them, because
+ * removing a legal move is a rules change and this layer does not make those.
+ */
+export function selfTargets(state: GameState): Coord[] {
+  if (state.phase !== "acting") return [];
+  const mine = new Set(
+    state.pieces
+      .filter((p) => p.owner === state.turn && p.at && p.state !== "captured")
+      .map((p) => `${p.at!.r},${p.at!.c}`)
+  );
+  return legalMoves(state)
+    .filter((m) => m.kind === "hazard" && mine.has(`${m.to.r},${m.to.c}`))
+    .map((m) => (m as Extract<Move, { kind: "hazard" }>).to);
+}
+
+/**
  * A leap chain can be stopped at any landing cell, so once one is under way
  * the player needs a way to say "that's far enough".
  */

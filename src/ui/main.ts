@@ -52,6 +52,7 @@ import {
   pendingAt,
   rescuablePieces,
   selectablePieces,
+  selfTargets,
   turnStatus,
   type Selection,
 } from "./hotseat.ts";
@@ -214,6 +215,7 @@ function render(): void {
     // are the thing to look at.
     movable: selection.piece ? [] : selectablePieces(state),
     tilt: session.tilt,
+    warnings: selfTargets(state),
   });
   paint($("board"), scene);
   renderHud();

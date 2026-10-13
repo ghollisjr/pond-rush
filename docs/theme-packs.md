@@ -161,6 +161,7 @@ A palette key is the sprite key with its prefix removed: `tile.water` → `water
 | ------------------------------ | ------------------------------------------ |
 | `player0` … `player3`          | Piece fallback **and** the HUD score chips. |
 | `highlight`                    | Lit cells, and the rings on selectable pieces. |
+| `warning`                      | Lit cells that are legal but inadvisable — your own pieces under the hazard. Defaults to a red if absent. |
 | `water`, `start`               | Tile fallbacks.                             |
 | `home.shore`, `home.rocks`, `home.bench` | Scoring tile fallbacks.           |
 | `primary`                      | Hazard fallback.                            |

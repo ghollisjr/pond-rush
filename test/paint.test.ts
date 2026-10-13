@@ -253,6 +253,25 @@ describe("paint", () => {
     });
   });
 
+  it("paints a warned cell differently from an ordinary lit one", () => {
+    withFakeDom((c) => {
+      paintInto(
+        c,
+        layout(view(game), theme, {
+          highlights: [{ r: 3, c: 3 }, { r: 3, c: 4 }],
+          warnings: [{ r: 3, c: 4 }],
+        })
+      );
+      const lit = c.children.filter((el) => el.dataset.kind === "highlight");
+      expect(lit).toHaveLength(2);
+      const plain = lit.find((el) => el.dataset.c === "3")!;
+      const warned = lit.find((el) => el.dataset.c === "4")!;
+      // Same kind of mark, different colour and weight — legal, not hidden.
+      expect(warned.style.backgroundColor).not.toBe(plain.style.backgroundColor);
+      expect(Number(warned.style.opacity) > Number(plain.style.opacity)).toBe(true);
+    });
+  });
+
   it("leaves only tiles clickable, so a piece never swallows a click", () => {
     withFakeDom((c) => {
       paintInto(c, layout(view(game), theme, { highlights: [{ r: 3, c: 3 }] }));

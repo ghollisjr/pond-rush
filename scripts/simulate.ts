@@ -48,7 +48,22 @@ function greedyAgent(s: GameState): Move {
   const piece = (id: string) => s.pieces.find((p) => p.id === id);
 
   const value = (m: Move): number => {
-    if (m.kind === "hazard") return 1;
+    if (m.kind === "hazard") {
+      // Every hazard placement scored the same, so the agent ate its own
+      // pieces on 27% of hazard turns and the balance numbers came out
+      // pessimistic. Prefer an opponent, and prefer the one closest to
+      // scoring; taking your own is a last resort, though it is legal and
+      // the engine must keep offering it.
+      const victim = s.pieces.find(
+        (pc) => pc.state === "active" && pc.at && pc.at.r === m.to.r && pc.at.c === m.to.c
+      );
+      if (!victim) return 0.2;
+      if (victim.owner === s.turn) return -10;
+      const theirGoals = homeCells(s, victim.owner);
+      const away = Math.min(...theirGoals.map((g) => chebyshev(victim.at!, g)));
+      // Closer to home is worth more to remove.
+      return 10 - away;
+    }
     if (m.kind === "rescue") return 0.5;
     const p = piece((m as { piece: string }).piece);
     if (!p?.at) return -99;

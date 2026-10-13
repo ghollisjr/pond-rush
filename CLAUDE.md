@@ -50,6 +50,13 @@ suite. Keep it that way — a stale guide is worse than none.
 reshapes the whole board. Only add a code module when a rule needs logic the
 schema genuinely cannot express, and say so in the commit message.
 
+**A legal move is never hidden, only marked.** Taking your own piece with the
+hazard is legal — the booklet says "any space occupied by a piece" — and it is
+never forced (0 of 372 hazard rolls had no other target). The board tints
+those cells with the `warning` colour and the help says why, rather than
+`hazardMoves` quietly dropping them. Removing a legal move is a rules change
+and belongs in a `RuleSet` flag, not in the UI.
+
 **Positions are grid coordinates, never pixels.** The renderer multiplies by
 `tileSize` from the theme manifest. A theme with chunky 96px tiles and one with
 flat 48px tiles must both just work.
@@ -89,17 +96,26 @@ crossing means everyone is eaten before anyone scores.
 
 | Variant        | avgPiecesHome (greedy) | Verdict                       |
 | -------------- | ---------------------- | ----------------------------- |
-| standard-4p    | ~2.4                   | plays, on the harsh side      |
-| standard-2p    | ~4.7                   | good after shortening to 3 rows |
-| triple-trouble | ~6.3                   | plays well                    |
-| hop-share      | ~2.4                   | plays; no measurable effect on this number |
-| stork-escape   | ~2.5                   | plays                         |
-| gap-jump       | ~3.7                   | plays best of the 4p set — see below |
-| house          | ~2.5                   | plays                         |
+| standard-4p    | ~1.5                   | harsh                         |
+| standard-2p    | ~4.6                   | good after shortening to 3 rows |
+| triple-trouble | ~5.3                   | plays well                    |
+| hop-share      | ~1.4                   | plays; no measurable effect on this number |
+| stork-escape   | ~1.5                   | plays                         |
+| gap-jump       | ~2.6                   | best of the 4p set — see below |
+| house          | ~1.5                   | plays                         |
+
+**These numbers moved once, and the reason matters.** The greedy agent scored
+every hazard placement identically, so it ate *its own* pieces on 27% of
+hazard turns. Fixing it to prefer the opponent nearest home did not raise the
+scores — it lowered them, across the board, because the agents became lethal
+to each other instead of to themselves. Four-player is harsher than the
+earlier table claimed, not kinder. If you change the agent again, expect every
+row to move, and do not compare numbers across agent versions.
 
 **Gap Jump is the most promising answer to four-player harshness.** It lifts
-`avgPiecesHome` from ~2.4 to ~3.7 and shortens the game slightly (113 -> 106
-turns), without the runaway length Stork Escape causes under random play. That
+`avgPiecesHome` from ~1.5 to ~2.6 — a 73% improvement that survived the agent
+fix — and shortens the game (164 -> 147 turns), without the runaway length
+Stork Escape causes under random play. That
 is a bigger improvement than either published variant manages, which is worth
 knowing before anyone reshapes the 4p board to fix the same problem. It is
 also `[PROVISIONAL]` and unverified against the booklet, so treat it as a good

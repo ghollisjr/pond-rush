@@ -23,7 +23,12 @@
 
 import { legalMoves, type GameState } from "../pond-engine.ts";
 import type { Theme } from "../theme.ts";
-import { confirmableMove, rescuablePieces, type Selection } from "./hotseat.ts";
+import {
+  confirmableMove,
+  rescuablePieces,
+  selfTargets,
+  type Selection,
+} from "./hotseat.ts";
 
 export interface HelpOption {
   /** What to do, in the imperative. */
@@ -228,6 +233,14 @@ export function explainNow(
       label: `Place the ${w.hazard}`,
       text: `Click any lit cell. Each one holds a ${w.piece} you may take.`,
     });
+    if (selfTargets(state).length) {
+      options.push({
+        label: "Red cells are yours",
+        text:
+          `Taking your own ${w.piece} is legal, and almost never worth it: ` +
+          `you lose it for good and the ${w.hazard} then blocks the cell.`,
+      });
+    }
   } else {
     options.push({
       label: `Pick a ${w.piece}`,
@@ -341,7 +354,8 @@ export function rulesSheet(state: GameState, theme: Theme): HelpSection[] {
     {
       title: w.hazard,
       paras: [
-        `Move the ${w.hazard} onto any ${w.piece} not already ${w.home}. ` +
+        `Move the ${w.hazard} onto any ${w.piece} not already ${w.home} — ` +
+          `your own included, though that is rarely wise. ` +
           (r.hazard.effect === "capture"
             ? `That ${w.piece} is removed from the game permanently.`
             : `That ${w.piece} goes back to its starting cell.`),

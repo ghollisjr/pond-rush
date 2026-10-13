@@ -9,6 +9,7 @@ import {
   pendingAt,
   rescuablePieces,
   selectablePieces,
+  selfTargets,
   turnStatus,
 } from "../src/ui/hotseat.ts";
 import {
@@ -256,5 +257,41 @@ describe("turnStatus", () => {
     expect(st.canRoll).toBe(false);
     expect(st.canPass).toBe(true);
     expect(st.faceKey!.startsWith("action.")).toBe(true);
+  });
+});
+
+describe("self-targeting the hazard", () => {
+  it("is offered — the rule says any occupied space, your own included", () => {
+    const s = rollUntil("hazard");
+    const mine = new Set(
+      s.pieces
+        .filter((p) => p.owner === s.turn && p.at && p.state !== "captured")
+        .map((p) => `${p.at!.r},${p.at!.c}`)
+    );
+    const own = legalMoves(s).filter(
+      (m) => m.kind === "hazard" && mine.has(`${m.to.r},${m.to.c}`)
+    );
+    expect(own.length).toBeGreaterThan(0);
+  });
+
+  it("is reported so the board can mark it, not hide it", () => {
+    const s = rollUntil("hazard");
+    const flagged = selfTargets(s);
+    expect(flagged.length).toBeGreaterThan(0);
+
+    // Every flagged cell must be both legal and one of yours.
+    const lit = highlightsFor(s, NO_SELECTION);
+    for (const c of flagged) {
+      expect(lit.some((h) => eq(h, c))).toBe(true);
+      const here = s.pieces.find((p) => p.at && eq(p.at, c));
+      expect(here!.owner).toBe(s.turn);
+    }
+    // And it is a strict subset: opponents are targets too.
+    expect(flagged.length < lit.length).toBe(true);
+  });
+
+  it("reports nothing when the face is not the hazard", () => {
+    expect(selfTargets(rollUntil("move"))).toHaveLength(0);
+    expect(selfTargets(createGame(1, BOARD_4P, OFFICIAL_RULES))).toHaveLength(0);
   });
 });
