@@ -35,11 +35,23 @@ import type { Room } from "../src/room.ts";
 async function kvStore(): Promise<{ store: RoomStore; kind: string }> {
   let kv: Deno.Kv;
   if (typeof Deno.openKv !== "function") {
-    console.error("Deno.openKv is not available in this runtime.");
+    console.error(
+      "Deno.openKv is not available in this runtime. Attach a Deno KV " +
+        "database to this app on the Databases page.",
+    );
     return { store: memoryStore(), kind: "memory (openKv missing)" };
   }
+
+  // Some platforms expose KV as an ambient global; others hand out a
+  // connection URL and expect it to be passed in. Support both rather than
+  // guessing which one this deployment is.
+  const url =
+    Deno.env.get("DENO_KV_URL") ??
+    Deno.env.get("KV_URL") ??
+    undefined;
+
   try {
-    kv = await Deno.openKv();
+    kv = url ? await Deno.openKv(url) : await Deno.openKv();
   } catch (err) {
     // This is not a degraded-but-working state. Each isolate gets its own
     // Map, so a room created by one is invisible to the next request routed
@@ -60,7 +72,7 @@ async function kvStore(): Promise<{ store: RoomStore; kind: string }> {
 
   const key = (id: string) => ["room", id];
 
-  return { kind: "deno-kv", store: {
+  return { kind: url ? "deno-kv (url)" : "deno-kv", store: {
     async get(id) {
       const got = await kv.get<Room>(key(id));
       return got.value ?? null;
