@@ -34,6 +34,10 @@ import type { Room } from "../src/room.ts";
  */
 async function kvStore(): Promise<{ store: RoomStore; kind: string }> {
   let kv: Deno.Kv;
+  if (typeof Deno.openKv !== "function") {
+    console.error("Deno.openKv is not available in this runtime.");
+    return { store: memoryStore(), kind: "memory (openKv missing)" };
+  }
   try {
     kv = await Deno.openKv();
   } catch (err) {
@@ -46,7 +50,12 @@ async function kvStore(): Promise<{ store: RoomStore; kind: string }> {
         "appear to vanish intermittently. Enable KV for this project.",
       err,
     );
-    return { store: memoryStore(), kind: "memory" };
+    return {
+      store: memoryStore(),
+      // Carried into /api/health so the reason is visible without dashboard
+      // access. It names the failure, not anything about the host.
+      kind: `memory (${(err as Error).name}: ${String((err as Error).message).slice(0, 120)})`,
+    };
   }
 
   const key = (id: string) => ["room", id];
