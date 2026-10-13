@@ -282,6 +282,9 @@ corners and a block behind it renders as a square.
   swap the two imports at the top of the test file.
 - Comments explain *why*, not *what*. Existing comments that record a rule or a
   decision are load-bearing; don't strip them.
+- A `describe` body that throws does not register its block, and the run
+  still prints `fail 0` — only a stray `✖` line gives it away. Check the test
+  *count* moved, not just that nothing failed.
 - Everything in `src/` must survive `--experimental-strip-types`, which erases
   types without rewriting code. Constructor parameter properties
   (`constructor(readonly x: number)`) are *code*, not types, and fail at run

@@ -183,7 +183,11 @@ describe("tutorial", () => {
 });
 
 describe("explainNow in a shared game", () => {
-  const s = applyMove(createGame(2, BOARD_4P, OFFICIAL_RULES), { kind: "pass" });
+  // Roll then pass to reach the next player's turn: before the roll, `pass`
+  // is not a legal move, and a describe body that throws silently fails to
+  // register the whole block while the run still reports "fail 0".
+  const start = createGame(2, BOARD_4P, OFFICIAL_RULES);
+  const s = applyMove(applyMove(start, { kind: "roll" }), { kind: "pass" });
   const who = (seat: number) => ({
     seat,
     nameFor: (n: number) => ["Alice", "Bob", "Cara", "Dev"][n],
