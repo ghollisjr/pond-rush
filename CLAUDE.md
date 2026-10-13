@@ -192,12 +192,25 @@ Still to do:
    folder has no file for is dropped at load, so the key falls through to the
    fallback and is reported as missing art rather than 404ing into a blank
    cell. What's left is nicer presentation — grouping, and a way to dismiss.
-3. **Server.** Holds seed plus move log per room, validates with `applyMove`,
-   broadcasts. Turn-based, so no lag compensation needed. Handle reconnect by
-   replaying the log, and decide what happens when a player vanishes mid-game.
-   The Undo button already does the replay trick locally — `replay(seed,
-   log.slice(0, -1), board, rules)` — which is the same mechanism a reconnect
-   will use.
+3. **Server.** Built, tested, and not yet wired to the browser.
+   `src/room.ts` is the rules of a shared game (pure, no HTTP, no clock,
+   no storage); `src/server-api.ts` is a plain `Request -> Response` function;
+   `server/main.ts` is the only host-specific file and supplies just storage,
+   a clock and randomness. Polling, not sockets: turn-based play does not
+   notice two seconds, and every response carries the move-log position, which
+   makes reconnect identical to a normal fetch rather than a special case.
+
+   Two things carry the security, and both come from decisions made long
+   before there was a server. Clients never roll, so a client cannot
+   manufacture a good face. And a move is sent as an *index* into
+   `legalMoves`, so a client cannot describe an illegal move at all — only
+   name one that does not exist, which is rejected by counting. There is no
+   parsing of untrusted move objects anywhere. `expect` (the client's belief
+   about the move count) makes it compare-and-swap rather than trust.
+
+   Still to do: the browser side. The page has no idea the server exists yet.
+   When wiring it, keep play-by-link working with no server configured — that
+   is what the GitHub Pages build is.
 
 Verified in a real browser on 2026-09-15: six scenarios driven through Chrome,
 including a game played to completion, and the seven defects they turned up are
@@ -233,3 +246,9 @@ corners and a block behind it renders as a square.
   swap the two imports at the top of the test file.
 - Comments explain *why*, not *what*. Existing comments that record a rule or a
   decision are load-bearing; don't strip them.
+- Everything in `src/` must survive `--experimental-strip-types`, which erases
+  types without rewriting code. Constructor parameter properties
+  (`constructor(readonly x: number)`) are *code*, not types, and fail at run
+  time while typechecking cleanly — write the field out. `server/` is excluded
+  from `tsc` because it names Deno globals; the logic it wraps lives in `src/`
+  and is checked and tested like everything else.

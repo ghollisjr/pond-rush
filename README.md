@@ -52,6 +52,17 @@ A corrupted or tampered link is rejected rather than played: an index that
 is not a legal move cannot be anything but damage, so `replayIndices` throws
 and the page starts a new game and says why.
 
+## Playing with other people, properly
+
+`server/` is a small HTTP API that holds rooms and validates every move with
+the same `applyMove` the browser uses — one implementation of the rules, not
+two. It is shared code plus about 200 lines. See
+[server/README.md](server/README.md) to run or deploy it.
+
+The play-by-link mode above needs no server and is not going away: it is what
+the GitHub Pages build uses, and it is the fallback whenever no server is
+configured.
+
 ## Deploying
 
 Every push to `main` runs the suite and the typechecker, bundles
