@@ -208,9 +208,35 @@ Still to do:
    parsing of untrusted move objects anywhere. `expect` (the client's belief
    about the move count) makes it compare-and-swap rather than trust.
 
-   Still to do: the browser side. The page has no idea the server exists yet.
-   When wiring it, keep play-by-link working with no server configured — that
-   is what the GitHub Pages build is.
+   The browser side is wired: `src/ui/online.ts` is the API client,
+   `src/ui/config.ts` says where the server is, and `main.ts` routes moves
+   through it and polls every 2.5s. Online is additive — `net === null` and
+   the page is exactly what it was. Verified with two browser profiles against
+   the deployed server: host, invite, join, turn gating, and a move appearing
+   in the other browser.
+
+   **The server needs a Deno KV database attached, and its absence is
+   invisible.** Without one `Deno.openKv` does not exist, each isolate keeps
+   rooms in its own memory, and a game vanishes on whichever request happens
+   to land elsewhere. `/api/health` reports `storage` and `durable` for
+   exactly this reason — check it before debugging anything else.
+
+   Still to do: what happens when a player abandons a game, and whether a
+   room should ever be reclaimable. Rooms currently expire after 30 days.
+
+Three bugs that only a browser could show, all from wiring the client to the
+server, all green in CI while the page was broken:
+
+- `this.fetcher = fetch` and then `this.fetcher(...)` passes the client as the
+  receiver. Browsers refuse that outright ("Illegal invocation"); node does
+  not mind, so every network call was broken in the page and passing in the
+  suite. Lift a function out of `this` before calling it, and make the test
+  double as fussy as the browser.
+- `publish()` rewrites `location.hash` at boot, so anything reading the hash
+  later sees the current game rather than what the page was opened with. Every
+  `#room=` invite was silently swallowed. Capture the opening hash once.
+- Hosting a four-player game alone deadlocks two moves in: turn order visits
+  every seat, and an empty seat is a turn nobody can take.
 
 Verified in a real browser on 2026-09-15: six scenarios driven through Chrome,
 including a game played to completion, and the seven defects they turned up are

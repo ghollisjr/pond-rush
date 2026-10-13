@@ -54,14 +54,21 @@ and the page starts a new game and says why.
 
 ## Playing with other people, properly
 
+Press **Host a game**, send the invite link, and play. Everyone sees the board
+update as moves are made; the board is read-only until it is your turn.
+
 `server/` is a small HTTP API that holds rooms and validates every move with
 the same `applyMove` the browser uses — one implementation of the rules, not
 two. It is shared code plus about 200 lines. See
 [server/README.md](server/README.md) to run or deploy it.
 
-The play-by-link mode above needs no server and is not going away: it is what
-the GitHub Pages build uses, and it is the fallback whenever no server is
-configured.
+Online play is purely additive. With no server reachable the page behaves
+exactly as it always has — hot seat, and a game carried in a link — which is
+what makes the demo work offline and survives the server ever going away. The
+panel says plainly which of the two you are in.
+
+Point the page at a different server without rebuilding:
+`?server=http://localhost:8787`.
 
 ## Deploying
 

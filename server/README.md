@@ -48,7 +48,20 @@ To put it on Deno Deploy:
    If that prints `*`, the variable is not reaching the deployment.
 
 It redeploys on every push to `main`. You get a URL like
-`https://pond-rush.deno.dev` — that is what the page needs to be told about.
+`https://pond-rush.ghollisjr.deno.net` — put it in `src/ui/config.ts`.
+
+5. **Attach a Deno KV database on the Databases page.** This is not optional
+   and its absence is not obvious: without it `Deno.openKv` does not exist,
+   the server falls back to memory that is private to each isolate, and rooms
+   appear and vanish between requests depending on which isolate answers. A
+   game was observed surviving 3 reads, failing the 4th, and succeeding on the
+   5th. Check with:
+
+   ```bash
+   curl -s https://YOUR-SERVER/api/health
+   # {"ok":true,"storage":"deno-kv","durable":true}   <- good
+   # {"storage":"memory (openKv missing)","durable":false}   <- attach KV
+   ```
 
 Check the current free-tier limits yourself rather than trusting this file;
 they change, and this game's traffic is far below any of them.
