@@ -27,9 +27,25 @@ To put it on Deno Deploy:
    repository.
 2. Create a project and link it to `ghollisjr/pond-rush`.
 3. Set the entry point to `server/main.ts`.
-4. Set the environment variable `ALLOW_ORIGIN` to
-   `https://ghollisjr.github.io`. Without it the server answers any origin,
-   which is fine for testing and sloppy for a deployment.
+4. Set the environment variable `ALLOW_ORIGIN`. It takes a comma-separated
+   list, and you almost certainly want two:
+
+   ```
+   https://ghollisjr.github.io, http://localhost:8000
+   ```
+
+   The server echoes back whichever of those asked, so the published page and
+   a local dev page can both reach it. Leave it unset and any origin is
+   answered — fine while testing, sloppy for a deployment.
+
+   Check it took effect:
+
+   ```bash
+   curl -sI -H 'origin: https://ghollisjr.github.io' \
+     https://YOUR-SERVER/api/health | grep -i access-control-allow-origin
+   ```
+
+   If that prints `*`, the variable is not reaching the deployment.
 
 It redeploys on every push to `main`. You get a URL like
 `https://pond-rush.deno.dev` — that is what the page needs to be told about.
@@ -50,6 +66,7 @@ identical to a normal fetch.
 | GET    | `/api/rooms/:id?since=N`   | the room, plus moves after N              |
 | POST   | `/api/rooms/:id/move`      | play a move; validated by `applyMove`     |
 | GET    | `/api/health`              | liveness                                  |
+| GET    | `/`                        | a status page, so opening it in a browser looks alive rather than broken |
 
 A move is sent as an index into `legalMoves`, with `expect` naming the move
 count the client believes it is at. Both matter:

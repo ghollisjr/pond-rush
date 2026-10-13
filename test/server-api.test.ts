@@ -189,6 +189,37 @@ describe("cross-origin and plumbing", () => {
     expect(res.headers.get("access-control-allow-origin")).toBe("https://ghollisjr.github.io");
   });
 
+  it("shows a page at the root instead of a bare 404", async () => {
+    // Opening the server in a browser reads as a broken deploy otherwise.
+    const res = await call(deps(), "GET", "/");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")!.includes("text/html")).toBe(true);
+    const body = await res.text();
+    expect(body.includes("not the game")).toBe(true);
+  });
+
+  it("answers the favicon browsers ask for unprompted", async () => {
+    expect((await call(deps(), "GET", "/favicon.ico")).status).toBe(204);
+  });
+
+  it("echoes an allowed origin so several can be permitted at once", async () => {
+    const d = deps({
+      allowOrigin: "https://ghollisjr.github.io, http://localhost:8000",
+    });
+    const from = (origin: string) =>
+      handle(new Request("http://x/api/health", { headers: { origin } }), d);
+
+    expect((await from("http://localhost:8000")).headers.get("access-control-allow-origin"))
+      .toBe("http://localhost:8000");
+    expect((await from("https://ghollisjr.github.io")).headers.get("access-control-allow-origin"))
+      .toBe("https://ghollisjr.github.io");
+    // An origin not on the list is not echoed back.
+    expect((await from("https://evil.example")).headers.get("access-control-allow-origin"))
+      .toBe("https://ghollisjr.github.io");
+    // Caches must not serve one origin's response to another.
+    expect((await from("http://localhost:8000")).headers.get("vary")).toBe("origin");
+  });
+
   it("has a health check and a 404", async () => {
     const d = deps();
     expect((await json(await call(d, "GET", "/api/health"))).ok).toBe(true);

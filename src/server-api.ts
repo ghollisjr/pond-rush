@@ -57,23 +57,58 @@ export interface ServerDeps {
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 
-function cors(deps: ServerDeps): Record<string, string> {
+const STATUS_PAGE = `<!doctype html><meta charset="utf-8">
+<title>Pond Rush server</title>
+<style>
+  body{background:#0d1116;color:#e8eef2;font:15px/1.6 system-ui,sans-serif;
+       margin:0;display:grid;place-items:center;min-height:100vh;padding:24px}
+  main{max-width:34rem}
+  h1{font-size:18px;letter-spacing:.04em;margin:0 0 4px}
+  p{opacity:.75;margin:0 0 12px}
+  code{background:#161b21;border:1px solid #2b343d;border-radius:4px;padding:1px 6px}
+  a{color:#ffd400}
+</style>
+<main>
+  <h1>POND RUSH \u2014 SERVER</h1>
+  <p>Running. This is the game server, not the game \u2014 there is no page to
+     look at here.</p>
+  <p>Play at <a href="https://ghollisjr.github.io/pond-rush/">ghollisjr.github.io/pond-rush</a>.</p>
+  <p>Liveness: <code>/api/health</code></p>
+</main>`;
+
+/**
+ * Echo back the caller's origin when it is on the allowed list, rather than
+ * naming a single one. A deployment usually needs at least two — the real
+ * page and a developer's localhost — and a lone fixed value silently locks
+ * one of them out.
+ */
+function allowedOrigin(deps: ServerDeps, req?: Request): string {
+  const allow = deps.allowOrigin ?? "*";
+  if (allow === "*") return "*";
+  const list = allow.split(",").map((o) => o.trim()).filter(Boolean);
+  const asked = req?.headers.get("origin") ?? "";
+  if (asked && list.includes(asked)) return asked;
+  return list[0] ?? "*";
+}
+
+function cors(deps: ServerDeps, req?: Request): Record<string, string> {
   return {
-    "access-control-allow-origin": deps.allowOrigin ?? "*",
+    "access-control-allow-origin": allowedOrigin(deps, req),
+    vary: "origin",
     "access-control-allow-headers": "content-type",
     "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-max-age": "86400",
   };
 }
 
-function reply(deps: ServerDeps, body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...JSON_HEADERS, ...cors(deps) },
-  });
+// CORS is applied once, in `handle`, to whatever comes back. Threading the
+// request through every call site is how the health endpoint quietly ended up
+// announcing the wrong origin: one of them simply did not pass it on.
+function reply(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 }
 
-function fail(deps: ServerDeps, err: unknown): Response {
+function fail(err: unknown): Response {
   const status = err instanceof RoomError ? err.status : 500;
   const message =
     err instanceof RoomError
@@ -81,7 +116,7 @@ function fail(deps: ServerDeps, err: unknown): Response {
       : // Never hand an internal failure's details to a client.
         "Something went wrong on the server.";
   if (status === 500) console.error("pond-rush:", err);
-  return reply(deps, { error: message }, status);
+  return reply({ error: message }, status);
 }
 
 async function readJson(req: Request): Promise<Record<string, unknown>> {
@@ -113,10 +148,22 @@ async function mutate(
 }
 
 export async function handle(req: Request, deps: ServerDeps): Promise<Response> {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: cors(deps) });
-  }
+  const response =
+    req.method === "OPTIONS"
+      ? new Response(null, { status: 204 })
+      : await route(req, deps);
 
+  // Every exit gets the headers, including ones added later.
+  const headers = new Headers(response.headers);
+  for (const [k, v] of Object.entries(cors(deps, req))) headers.set(k, v);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function route(req: Request, deps: ServerDeps): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, "");
 
@@ -140,7 +187,7 @@ export async function handle(req: Request, deps: ServerDeps): Promise<Response> 
       if (!(await deps.store.swap(null, room))) {
         throw new RoomError("Could not create a game — try again.", 503);
       }
-      return reply(deps, { room: viewOf(room) }, 201);
+      return reply({ room: viewOf(room) }, 201);
     }
 
     const roomMatch = /^\/api\/rooms\/([A-Za-z0-9_-]{1,32})(\/[a-z]+)?$/.exec(path);
@@ -151,7 +198,7 @@ export async function handle(req: Request, deps: ServerDeps): Promise<Response> 
         const room = await deps.store.get(id);
         if (!room) throw new RoomError("No such game.", 404);
         const since = Number(url.searchParams.get("since") ?? 0);
-        return reply(deps, {
+        return reply({
           room: viewOf(room),
           since: Number.isFinite(since) ? since : 0,
           moves: movesSince(room, Number.isFinite(since) ? since : 0),
@@ -172,7 +219,7 @@ export async function handle(req: Request, deps: ServerDeps): Promise<Response> 
           return seated.room;
         });
         // The token goes to this client and is never in a room view.
-        return reply(deps, { token, seat: seated!.player.seat, room: viewOf(room) }, 201);
+        return reply({ token, seat: seated!.player.seat, room: viewOf(room) }, 201);
       }
 
       if (req.method === "POST" && action === "/move") {
@@ -186,17 +233,31 @@ export async function handle(req: Request, deps: ServerDeps): Promise<Response> 
             deps.now()
           )
         );
-        return reply(deps, { room: viewOf(room) });
+        return reply({ room: viewOf(room) });
       }
     }
 
     if (req.method === "GET" && path === "/api/health") {
-      return reply(deps, { ok: true });
+      return reply({ ok: true });
     }
 
-    return reply(deps, { error: "Not found." }, 404);
+    // Opening the server in a browser should say "this is alive and it is
+    // not a website", rather than a bare 404 that reads as a broken deploy.
+    if (req.method === "GET" && (path === "" || path === "/")) {
+      return new Response(STATUS_PAGE, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+
+    // Browsers ask for this unprompted. 204 keeps it out of the error log.
+    if (path === "/favicon.ico") {
+      return new Response(null, { status: 204 });
+    }
+
+    return reply({ error: "Not found." }, 404);
   } catch (err) {
-    return fail(deps, err);
+    return fail(err);
   }
 }
 
