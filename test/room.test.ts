@@ -205,3 +205,26 @@ describe("waiting for a full table", () => {
     expect(() => play(room, tokens[0], 0, 0, NOW)).not.toThrow();
   });
 })
+
+describe("rejoining", () => {
+  it("hands back the seat you already hold rather than a new one", () => {
+    const first = join(fresh(), "Alice", "tok-a");
+    expect(first.player.seat).toBe(0);
+    const again = join(first.room, "Alice", "tok-a");
+    expect(again.player.seat).toBe(0);
+    expect(again.room.players).toHaveLength(1);
+    expect(viewOf(again.room).openSeats).toHaveLength(3);
+  });
+
+  it("does not let one client occupy the table", () => {
+    // Four joins with the same token must leave three seats open, not none.
+    let room = fresh();
+    for (let i = 0; i < 4; i++) room = join(room, "Alice", "tok-a").room;
+    expect(viewOf(room).openSeats).toEqual([1, 2, 3]);
+  });
+
+  it("refuses to move a seated player to another seat", () => {
+    const { room } = join(fresh(), "Alice", "tok-a");
+    expect(() => join(room, "Alice", "tok-a", 2)).toThrow();
+  });
+})

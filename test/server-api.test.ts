@@ -249,15 +249,43 @@ describe("cross-origin and plumbing", () => {
 });
 
 describe("identity", () => {
-  it("refuses to seat two players under one token", async () => {
-    // Impossible with real 24-byte tokens, but if it ever happened the
-    // server would quietly treat both as the same player, and the second
-    // would be able to move on the first's turn. Fail loudly instead.
-    const d = deps({ newToken: () => "same-token" });
-    const created = await json(await call(d, "POST", "/api/rooms", { variantId: "standard-2p" }));
+  it("returns the same seat when a client rejoins with its token", async () => {
+    // A reload, a second tab, or a retried request must not consume another
+    // seat — a four-player game would otherwise be "full" with two people.
+    const d = deps();
+    const created = await json(await call(d, "POST", "/api/rooms", { variantId: "standard-4p" }));
     const id = created.room.id;
-    expect((await call(d, "POST", `/api/rooms/${id}/join`, { name: "a" })).status).toBe(201);
-    expect((await call(d, "POST", `/api/rooms/${id}/join`, { name: "b" })).status).toBe(500);
+
+    const first = await json(await call(d, "POST", `/api/rooms/${id}/join`, { name: "Alice" }));
+    const again = await json(
+      await call(d, "POST", `/api/rooms/${id}/join`, { name: "Alice", token: first.token })
+    );
+
+    expect(again.seat).toBe(first.seat);
+    expect(again.token).toBe(first.token);
+    expect(again.room.players).toHaveLength(1);
+    expect(again.room.openSeats).toHaveLength(3);
+  });
+
+  it("still seats a genuinely different player", async () => {
+    const d = deps();
+    const created = await json(await call(d, "POST", "/api/rooms", { variantId: "standard-4p" }));
+    const id = created.room.id;
+    const a = await json(await call(d, "POST", `/api/rooms/${id}/join`, { name: "A" }));
+    const b = await json(await call(d, "POST", `/api/rooms/${id}/join`, { name: "B" }));
+    expect(b.seat === a.seat).toBe(false);
+    expect(b.room.players).toHaveLength(2);
+  });
+
+  it("refuses to move you to a different seat", async () => {
+    const d = deps();
+    const created = await json(await call(d, "POST", "/api/rooms", { variantId: "standard-4p" }));
+    const id = created.room.id;
+    const a = await json(await call(d, "POST", `/api/rooms/${id}/join`, { name: "A" }));
+    const res = await call(d, "POST", `/api/rooms/${id}/join`, {
+      name: "A", token: a.token, seat: 2,
+    });
+    expect(res.status).toBe(409);
   });
 });
 

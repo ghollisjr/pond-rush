@@ -214,7 +214,10 @@ async function route(req: Request, deps: ServerDeps): Promise<Response> {
 
       if (req.method === "POST" && action === "/join") {
         const body = await readJson(req);
-        const token = deps.newToken();
+        // A client that already has a token for this room sends it, and gets
+        // its own seat back instead of a second one.
+        const existing = body.token ? String(body.token) : "";
+        const token = existing || deps.newToken();
         let seated;
         const room = await mutate(deps, id, (current) => {
           seated = join(

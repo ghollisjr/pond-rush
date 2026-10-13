@@ -84,6 +84,13 @@ export interface LayoutOptions {
   /** Lay the board back by this many degrees. 0, the default, is flat. */
   tilt?: number;
   /**
+   * Quarter turns clockwise to spin the board before drawing, so a player
+   * can be shown the table from their own side. Purely presentational: the
+   * grid coordinate on every sprite stays the real one, so clicks, the
+   * engine and the server all keep talking about the same cells.
+   */
+  quarterTurns?: 0 | 1 | 2 | 3;
+  /**
    * Cells that are legal but inadvisable — lit like any other, in a colour
    * that says so. The caller decides what counts; the renderer only paints.
    */
@@ -147,6 +154,27 @@ export function layout(
   const sprites: Sprite[] = [];
   const movable = new Set(opts.movable ?? []);
 
+  // Spinning the board is a change of where a cell is drawn, never of which
+  // cell it is. Sprites keep their true `at`, so the hit test, the engine and
+  // the server are all still talking about the same square — and the art is
+  // not rotated either, so pieces and the numbers on the scoring tiles stay
+  // the right way up.
+  const turns = (((opts.quarterTurns ?? 0) % 4) + 4) % 4;
+  const rows = view.height;
+  const cols = view.width;
+  const place2d = (at: Coord): { x: number; y: number } => {
+    switch (turns) {
+      case 1:
+        return { x: (rows - 1 - at.r) * ts, y: at.c * ts };
+      case 2:
+        return { x: (cols - 1 - at.c) * ts, y: (rows - 1 - at.r) * ts };
+      case 3:
+        return { x: at.r * ts, y: (cols - 1 - at.c) * ts };
+      default:
+        return { x: at.c * ts, y: at.r * ts };
+    }
+  };
+
   const place = (
     kind: SpriteKind,
     key: string,
@@ -160,8 +188,7 @@ export function layout(
       src: theme.sprite(key),
       colour: theme.colour(paletteKeyFor(key)),
       at,
-      x: at.c * ts,
-      y: at.r * ts,
+      ...place2d(at),
       w: ts,
       h: ts,
       rotation: 0,
@@ -211,9 +238,11 @@ export function layout(
   // own ordering is preserved, so a redraw never shuffles equal sprites.
   sprites.sort((a, b) => a.z - b.z);
 
+  // An odd number of turns puts the board on its side.
+  const odd = turns % 2 === 1;
   return {
-    width: view.width * ts,
-    height: view.height * ts,
+    width: (odd ? view.height : view.width) * ts,
+    height: (odd ? view.width : view.height) * ts,
     tileSize: ts,
     highlightColour: theme.colour(paletteKeyFor(HIGHLIGHT_KEY)),
     pixelArt: theme.pixelArt,

@@ -17,11 +17,14 @@
 
 import {
   eq,
+  homeCells,
   legalMoves,
+  startCells,
   type Coord,
   type GameState,
   type Move,
   type PieceId,
+  type PlayerId,
 } from "../pond-engine.ts";
 
 export interface Selection {
@@ -121,6 +124,33 @@ export function highlightsFor(state: GameState, sel: Selection): Coord[] {
 export function pendingAt(sel: Selection): Coord | null {
   if (sel.rescuing || !sel.piece || !sel.path.length) return null;
   return sel.path[sel.path.length - 1];
+}
+
+/**
+ * Quarter turns clockwise that put a player's home at the far side of the
+ * board, so they see the table from their own seat — their pieces nearest
+ * them, crossing away.
+ *
+ * Derived from the board rather than hardcoded per seat, so it is still right
+ * for a variant that rearranges where people sit.
+ */
+export function viewpointFor(state: GameState, player: PlayerId): 0 | 1 | 2 | 3 {
+  const from = centre(startCells(state, player));
+  const to = centre(homeCells(state, player));
+  if (!from || !to) return 0;
+
+  const dr = to.r - from.r;
+  const dc = to.c - from.c;
+  // Whichever axis the crossing mostly runs along decides the turn.
+  if (Math.abs(dr) >= Math.abs(dc)) return dr <= 0 ? 0 : 2;
+  return dc < 0 ? 1 : 3;
+}
+
+function centre(cells: Coord[]): Coord | null {
+  if (!cells.length) return null;
+  const r = cells.reduce((t, c) => t + c.r, 0) / cells.length;
+  const c = cells.reduce((t, x) => t + x.c, 0) / cells.length;
+  return { r, c };
 }
 
 /**

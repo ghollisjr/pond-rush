@@ -93,6 +93,16 @@
   #room-code { width: 96px; text-transform: uppercase; }
   #room-label { font-size: 15px; font-weight: 700; letter-spacing: 0.08em; }
   #online-players { font-size: 13px; opacity: 0.75; }
+  /* Which player you are is the first thing you need and the easiest thing
+     to lose track of: every seat sees the same board and the same pieces. */
+  #you {
+    font-size: 15px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border-left: 6px solid;
+    background: #0d1116;
+  }
   .seat-you { color: #ffd400; }
   /* Owned by events, never by render(): a message about something that just
      happened must not be wiped by the next repaint of the board. */
@@ -181,6 +191,9 @@
       <button id="host">Host a game</button>
       <input id="room-code" type="text" placeholder="room code" maxlength="8" />
       <button id="join">Join</button>
+    </div>
+    <div class="row" id="you-row" hidden>
+      <span id="you"></span>
     </div>
     <div class="row" id="online-room" hidden>
       <span id="room-label"></span>

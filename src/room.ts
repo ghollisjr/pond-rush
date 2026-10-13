@@ -166,20 +166,27 @@ export function join(
   token: string,
   seat?: PlayerId
 ): { room: Room; player: Player } {
+  // Holding a token for this room means you are already sitting down. Say so
+  // rather than handing out a second seat: a reload, a second tab or a
+  // retried request would otherwise consume the table, and a four-player
+  // game would be "full" with two people in it.
+  const already = room.players.find((p) => p.token === token);
+  if (already) {
+    if (seat !== undefined && seat !== already.seat) {
+      throw new RoomError(
+        `You are already Player ${already.seat + 1} in this game.`,
+        409
+      );
+    }
+    return { room, player: already };
+  }
+
   const open = viewOf(room).openSeats;
   if (open.length === 0) throw new RoomError("This game is full.", 409);
 
   const chosen = seat ?? open[0];
   if (!open.includes(chosen)) {
     throw new RoomError(`Seat ${chosen + 1} is taken.`, 409);
-  }
-
-  // Two players sharing a token would both resolve to whichever sat down
-  // first, so the second could move on the first's turn. Real tokens are 24
-  // random bytes and will never collide; a bug in whatever generates them
-  // should surface here rather than as a mysterious turn order.
-  if (room.players.some((p) => p.token === token)) {
-    throw new RoomError("Token collision while joining.", 500);
   }
 
   const trimmed = name.trim().slice(0, 24) || `Player ${chosen + 1}`;

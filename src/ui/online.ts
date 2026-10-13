@@ -117,14 +117,20 @@ export class OnlineClient {
     return out.room;
   }
 
+  /**
+   * Take a seat. Pass `token` if this client already holds one for the room
+   * and the same seat comes back, rather than a second one — which is what
+   * keeps a reload or a stray second tab from eating the table.
+   */
   async join(
     roomId: string,
     name: string,
-    seat?: PlayerId
+    seat?: PlayerId,
+    token?: string
   ): Promise<{ seat: Seat; room: RoomView }> {
     const out = await this.call<{ token: string; seat: PlayerId; room: RoomView }>(
       `/api/rooms/${encodeURIComponent(roomId)}/join`,
-      { method: "POST", body: { name, seat } }
+      { method: "POST", body: { name, seat, token } }
     );
     return { seat: { token: out.token, seat: out.seat }, room: out.room };
   }

@@ -62,6 +62,7 @@ import {
   rescuablePieces,
   selectablePieces,
   selfTargets,
+  viewpointFor,
   turnStatus,
   type Selection,
 } from "./hotseat.ts";
@@ -269,10 +270,21 @@ function renderOnline(): void {
 
   if (!net) {
     $("online-players").textContent = "";
+    $("you-row").hidden = true;
     return;
   }
 
   $("room-label").textContent = net.roomId;
+
+  const me = net.room.players.find((p) => p.seat === net!.seat.seat);
+  const colour = session.theme.colour(`player${net.seat.seat}`);
+  $("you-row").hidden = false;
+  const you = $("you");
+  you.textContent = `You are Player ${net.seat.seat + 1}${
+    me ? ` — ${me.name}` : ""
+  }`;
+  you.style.borderLeftColor = colour;
+  you.style.color = colour;
 
   const seats = net.room.players
     .map((p) => {
@@ -314,13 +326,16 @@ async function joinGame(code: string): Promise<void> {
     notify(`Joining ${roomId}…`);
     // A seat already held in this room is reclaimed rather than taking a
     // second one, so a reload does not cost you the game.
+    // Sending the held token makes this idempotent: the server hands back the
+    // same seat rather than a new one, and a stale token simply gets a fresh
+    // seat instead of an error.
     const held = recallSeat(localStorage, roomId);
-    if (held) {
-      enterRoom(roomId, held);
-      notify(`Back in ${roomId}.`);
-      return;
-    }
-    const { seat } = await online.join(roomId, playerName());
+    const { seat } = await online.join(
+      roomId,
+      playerName(),
+      undefined,
+      held?.token
+    );
     rememberSeat(localStorage, roomId, seat);
     enterRoom(roomId, seat);
     notify(`Joined ${roomId}.`);
@@ -459,6 +474,10 @@ function render(): void {
     movable: selection.piece ? [] : selectablePieces(state),
     tilt: session.tilt,
     warnings: selfTargets(state),
+    // Online, you are shown the table from your own side: your pieces
+    // nearest you, crossing away. Hot seat stays put, because a board that
+    // spun every turn would be worse than one that never does.
+    quarterTurns: net ? viewpointFor(state, net.seat.seat) : 0,
   });
   paint($("board"), scene);
   renderHud();
@@ -523,8 +542,13 @@ function renderHud(): void {
   if (st.phase === "finished") {
     const who = st.winners.map((p) => `Player ${p + 1}`).join(" & ");
     $("turn").textContent = st.winners.length > 1 ? `Draw: ${who}` : `${who} wins`;
+  } else if (net && st.player === net.seat.seat) {
+    // "Player 2" is ambiguous when you are Player 2 — it reads as a label
+    // for someone else.
+    $("turn").textContent = `Your turn`;
   } else {
-    $("turn").textContent = `Player ${st.player + 1}`;
+    const who = net?.room.players.find((p) => p.seat === st.player);
+    $("turn").textContent = who ? `${who.name}'s turn` : `Player ${st.player + 1}`;
   }
   $("turn").style.color = theme.colour(`player${st.player}`);
 
