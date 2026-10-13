@@ -32,22 +32,26 @@ import type { Room } from "../src/room.ts";
  * memory when KV is unavailable, which is fine for a local run and wrong for
  * a deployment — hence the warning.
  */
-async function kvStore(): Promise<RoomStore> {
+async function kvStore(): Promise<{ store: RoomStore; kind: string }> {
   let kv: Deno.Kv;
   try {
     kv = await Deno.openKv();
   } catch (err) {
-    console.warn(
-      "Deno KV unavailable, falling back to memory. Games will be lost on " +
-        "restart and will not be shared between instances.",
+    // This is not a degraded-but-working state. Each isolate gets its own
+    // Map, so a room created by one is invisible to the next request routed
+    // elsewhere, and games appear and disappear at random. /api/health says
+    // so out loud rather than leaving it to be discovered by a player.
+    console.error(
+      "Deno KV unavailable — falling back to per-isolate memory. Rooms will " +
+        "appear to vanish intermittently. Enable KV for this project.",
       err,
     );
-    return memoryStore();
+    return { store: memoryStore(), kind: "memory" };
   }
 
   const key = (id: string) => ["room", id];
 
-  return {
+  return { kind: "deno-kv", store: {
     async get(id) {
       const got = await kv.get<Room>(key(id));
       return got.value ?? null;
@@ -64,11 +68,14 @@ async function kvStore(): Promise<RoomStore> {
         .commit();
       return result.ok;
     },
-  };
+  } };
 }
 
+const backing = await kvStore();
+
 const deps: ServerDeps = {
-  store: await kvStore(),
+  store: backing.store,
+  storage: backing.kind,
   now: () => Date.now(),
   newRoomId: () => randomRoomId(),
   newToken: () => randomToken(),

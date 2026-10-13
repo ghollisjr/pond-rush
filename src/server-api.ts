@@ -53,6 +53,13 @@ export interface ServerDeps {
   newToken(): string;
   /** Origins allowed to call this server. `*` for a public demo. */
   allowOrigin?: string;
+  /**
+   * What is holding the rooms. Reported by /api/health, because a server
+   * that silently fell back to per-isolate memory looks identical to a
+   * working one until a game intermittently vanishes — which is exactly how
+   * this field came to exist.
+   */
+  storage?: string;
 }
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -238,7 +245,11 @@ async function route(req: Request, deps: ServerDeps): Promise<Response> {
     }
 
     if (req.method === "GET" && path === "/api/health") {
-      return reply({ ok: true });
+      return reply({
+        ok: true,
+        storage: deps.storage ?? "unknown",
+        durable: (deps.storage ?? "") !== "memory",
+      });
     }
 
     // Opening the server in a browser should say "this is alive and it is

@@ -213,6 +213,17 @@ export function play(
     );
   }
 
+  // Turn order runs through every seat the board has, so an empty one is a
+  // turn nobody can take and the game simply stops there. Wait for a full
+  // table rather than deadlocking two moves in.
+  const open = viewOf(room).openSeats;
+  if (open.length > 0) {
+    throw new RoomError(
+      `Waiting for ${open.length} more player${open.length === 1 ? "" : "s"}.`,
+      409
+    );
+  }
+
   const state = stateOf(room);
   if (state.phase === "finished") throw new RoomError("This game is over.", 409);
   if (state.turn !== player.seat) {

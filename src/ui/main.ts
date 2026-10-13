@@ -42,6 +42,15 @@ import {
   validateTheme,
 } from "../theme.ts";
 import { PLAIN_THEME } from "./default-theme.ts";
+import { serverUrl } from "./config.ts";
+import {
+  OnlineClient,
+  OnlineError,
+  recallSeat,
+  rememberSeat,
+  type RoomView,
+  type Seat,
+} from "./online.ts";
 import { explainNow, rulesSheet, tutorial, type HelpSection } from "./help.ts";
 import {
   NO_SELECTION,
@@ -58,6 +67,21 @@ import {
 } from "./hotseat.ts";
 
 const registry = new VariantRegistry();
+const online = new OnlineClient(serverUrl());
+
+/**
+ * Set only while playing a networked game. When it is null the page behaves
+ * exactly as it always has — the whole online layer is additive, so a server
+ * that is down costs you multiplayer and nothing else.
+ */
+interface OnlineGame {
+  roomId: string;
+  seat: Seat;
+  room: RoomView;
+  /** Polling handle, so leaving a game stops the traffic. */
+  timer: number | null;
+}
+let net: OnlineGame | null = null;
 
 /**
  * How far the board is laid back on first load. Flat reads as a diagram;
@@ -106,10 +130,93 @@ function commit(move: Move): void {
   // Taken against the pre-move state: an index only means anything relative
   // to the list it indexes.
   const index = moveIndex(session.state, move);
+
+  if (net) {
+    void submit(index);
+    return;
+  }
+
   session.state = applyMove(session.state, move);
   if (index >= 0) session.moves.push(index);
   session.selection = NO_SELECTION;
   publish();
+  render();
+}
+
+/**
+ * Online, the server decides. The move is sent and the board is rebuilt from
+ * what comes back, rather than applied locally and hoped about — the client's
+ * copy is a view of the server's game, not a second game that has to agree.
+ */
+async function submit(index: number): Promise<void> {
+  if (!net || index < 0) return;
+  try {
+    const room = await online.move(
+      net.roomId,
+      net.seat.token,
+      index,
+      session.moves.length
+    );
+    adopt(room);
+    notify("");
+  } catch (err) {
+    const e = err as OnlineError;
+    notify(e.message);
+    // Behind, or refused. Either way the server's version is the real one.
+    if (e.status === 409 || e.status === 0) void poll();
+  }
+}
+
+/**
+ * Ask what has happened. Polling rather than a socket: the game is
+ * turn-based, nobody notices two seconds, and every reply carries the whole
+ * position — so a tab that slept for an hour recovers by the same path as one
+ * that blinked. There is no reconnect logic because there is no connection.
+ */
+const POLL_MS = 2500;
+
+async function poll(): Promise<void> {
+  if (!net) return;
+  try {
+    const { room } = await online.since(net.roomId, session.moves.length);
+    // Rebuild only when something actually changed.
+    if (room.moves.length !== session.moves.length ||
+        room.players.length !== net.room.players.length) {
+      adopt(room);
+    } else {
+      net.room = room;
+      renderOnline();
+    }
+    markReachable(true);
+  } catch (err) {
+    markReachable(false, (err as OnlineError).message);
+  }
+}
+
+function startPolling(): void {
+  stopPolling();
+  if (!net) return;
+  net.timer = setInterval(() => void poll(), POLL_MS) as unknown as number;
+}
+
+function stopPolling(): void {
+  if (net?.timer != null) clearInterval(net.timer);
+  if (net) net.timer = null;
+}
+
+/** Replace the local game with the server's, whatever we thought it was. */
+function adopt(room: RoomView): void {
+  const { rules, board } = registry.resolve(room.variantId);
+  session.variantId = room.variantId;
+  session.seed = room.seed;
+  session.moves = room.moves;
+  session.state = replayIndices(
+    { variantId: room.variantId, seed: room.seed, moves: room.moves },
+    board,
+    rules
+  );
+  session.selection = NO_SELECTION;
+  if (net) net.room = room;
   render();
 }
 
@@ -147,6 +254,125 @@ function notify(message: string): void {
   const el = $("notice");
   el.textContent = message;
   el.hidden = !message;
+}
+
+function markReachable(up: boolean, why = ""): void {
+  const el = $("online-state");
+  el.textContent = up ? "connected" : why || "unreachable";
+  el.className = up ? "up" : "down";
+}
+
+function renderOnline(): void {
+  const inGame = net !== null;
+  $("online-actions").hidden = inGame;
+  $("online-room").hidden = !inGame;
+
+  if (!net) {
+    $("online-players").textContent = "";
+    return;
+  }
+
+  $("room-label").textContent = net.roomId;
+
+  const seats = net.room.players
+    .map((p) => {
+      const you = p.seat === net!.seat.seat;
+      const turn = net!.room.turn === p.seat ? " \u2190" : "";
+      return `<span class="${you ? "seat-you" : ""}">${escape(p.name)}${
+        you ? " (you)" : ""
+      }${turn}</span>`;
+    })
+    .join(" · ");
+  const waiting = net.room.openSeats.length
+    ? ` · waiting for ${net.room.openSeats.length} more`
+    : "";
+  $("online-players").innerHTML = seats + waiting;
+}
+
+/** True when the board should ignore clicks: someone else is to move. */
+function spectating(): boolean {
+  return net !== null && session.state.turn !== net.seat.seat;
+}
+
+async function hostGame(): Promise<void> {
+  try {
+    notify("Creating a game…");
+    const room = await online.createRoom(session.variantId);
+    const { seat } = await online.join(room.id, playerName());
+    rememberSeat(localStorage, room.id, seat);
+    enterRoom(room.id, seat);
+    notify(`Game ${room.id} created — send the invite.`);
+  } catch (err) {
+    notify((err as OnlineError).message);
+  }
+}
+
+async function joinGame(code: string): Promise<void> {
+  const roomId = code.trim().toUpperCase();
+  if (!roomId) return;
+  try {
+    notify(`Joining ${roomId}…`);
+    // A seat already held in this room is reclaimed rather than taking a
+    // second one, so a reload does not cost you the game.
+    const held = recallSeat(localStorage, roomId);
+    if (held) {
+      enterRoom(roomId, held);
+      notify(`Back in ${roomId}.`);
+      return;
+    }
+    const { seat } = await online.join(roomId, playerName());
+    rememberSeat(localStorage, roomId, seat);
+    enterRoom(roomId, seat);
+    notify(`Joined ${roomId}.`);
+  } catch (err) {
+    notify((err as OnlineError).message);
+  }
+}
+
+function enterRoom(roomId: string, seat: Seat): void {
+  net = { roomId, seat, room: emptyRoomView(roomId), timer: null };
+  void poll().then(startPolling);
+  renderOnline();
+  render();
+}
+
+function leaveRoom(): void {
+  stopPolling();
+  net = null;
+  notify("Left the game. The board is yours again.");
+  renderOnline();
+  render();
+}
+
+/** A placeholder until the first poll answers. */
+function emptyRoomView(roomId: string): RoomView {
+  return {
+    id: roomId,
+    variantId: session.variantId,
+    seed: session.seed,
+    moves: [],
+    players: [],
+    turn: 0,
+    finished: false,
+    openSeats: [],
+  };
+}
+
+function playerName(): string {
+  const stored = (() => {
+    try {
+      return localStorage.getItem("pond-rush/name") ?? "";
+    } catch {
+      return "";
+    }
+  })();
+  const name = stored || `Player ${Math.floor(Math.random() * 900 + 100)}`;
+  try {
+    localStorage.setItem("pond-rush/name", name);
+  } catch {
+    // Not worth a message.
+  }
+  return name;
 }
 
 function currentLink(): string {
@@ -297,9 +523,16 @@ function renderHud(): void {
     )
     .join("");
 
-  ($("roll") as HTMLButtonElement).disabled = !st.canRoll;
-  ($("pass") as HTMLButtonElement).disabled = !st.canPass;
-  ($("undo") as HTMLButtonElement).disabled = state.history.length === 0;
+  const theirTurn = spectating();
+  ($("roll") as HTMLButtonElement).disabled = !st.canRoll || theirTurn;
+  ($("pass") as HTMLButtonElement).disabled = !st.canPass || theirTurn;
+  // Undo rewrites history, which cannot be done to a game other people are
+  // in. Share the link instead if you want a do-over.
+  ($("undo") as HTMLButtonElement).disabled =
+    state.history.length === 0 || net !== null;
+  ($("new") as HTMLButtonElement).disabled = net !== null;
+  ($("variant") as HTMLSelectElement).disabled = net !== null;
+  ($("seed") as HTMLInputElement).disabled = net !== null;
 
   const confirm = confirmableMove(selection);
   const confirmBtn = $("confirm") as HTMLButtonElement;
@@ -323,6 +556,10 @@ function renderHud(): void {
 
 function hintFor(): string {
   const { state, selection, theme } = session;
+  if (spectating()) {
+    const who = net!.room.players.find((p) => p.seat === state.turn);
+    return `Waiting for ${who ? who.name : `Player ${state.turn + 1}`}…`;
+  }
   if (state.phase === "finished") return "Game over.";
   if (state.phase === "awaiting_roll") return "Roll to start your turn.";
   if (selection.rescuing) return "Pick a starting cell.";
@@ -347,6 +584,13 @@ function showThemeProblems(problems: string[]): void {
 }
 
 function onBoardClick(ev: MouseEvent): void {
+  // Online, the board is read-only until it is your turn. The server would
+  // refuse anyway; refusing here keeps a half-made selection from appearing
+  // and then silently evaporating.
+  if (spectating()) {
+    notify("Not your turn yet.");
+    return;
+  }
   const at = coordFromElement(ev.target as HTMLElement | null);
   if (!at) return;
 
@@ -401,6 +645,30 @@ function wire(): void {
     session.tilt = Number(tilt.value);
     $("tilt-read").textContent = session.tilt ? `${session.tilt}°` : "flat";
     render();
+  });
+
+  $("host").addEventListener("click", () => void hostGame());
+  $("join").addEventListener("click", () =>
+    void joinGame(($("room-code") as HTMLInputElement).value)
+  );
+  ($("room-code") as HTMLInputElement).addEventListener("keydown", (ev) => {
+    if ((ev as KeyboardEvent).key === "Enter") {
+      void joinGame(($("room-code") as HTMLInputElement).value);
+    }
+  });
+  $("leave").addEventListener("click", leaveRoom);
+
+  $("copy-room").addEventListener("click", async () => {
+    if (!net) return;
+    const url = `${location.origin}${location.pathname}#room=${net.roomId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      notify("Invite copied — send it to the other players.");
+    } catch {
+      ($("share-url") as HTMLInputElement).value = url;
+      $("share-url").hidden = false;
+      notify("Copy this invite and send it to the other players.");
+    }
   });
 
   $("share").addEventListener("click", async () => {
@@ -475,8 +743,15 @@ async function loadDefaultPack(): Promise<void> {
  * last played here, and anything unreadable falls back to a new game with a
  * message rather than a blank page.
  */
+/**
+ * The hash as the page was opened, captured once. `publish()` rewrites it to
+ * the current game within a tick of boot, so anything reading `location.hash`
+ * later sees that instead — which silently swallowed every `#room=` invite.
+ */
+const openedWith = typeof location === "undefined" ? "" : location.hash;
+
 function boot(): string | null {
-  const fromUrl = /^#g=(.+)$/.exec(location.hash)?.[1];
+  const fromUrl = /^#g=(.+)$/.exec(openedWith)?.[1];
   if (fromUrl) {
     try {
       const restored = sessionFromLink(decodeURIComponent(fromUrl), session.theme);
@@ -514,6 +789,20 @@ function boot(): string | null {
 const bootMessage = boot();
 wire();
 render();
+renderOnline();
+
+// Check the server once at start so the panel is honest about whether
+// online play is available, and pick up an invite link if there is one.
+void (async () => {
+  const up = await online.health();
+  markReachable(up, up ? "" : "server unreachable — local play only");
+  const invite = /^#room=([A-Za-z0-9_-]{1,32})$/.exec(openedWith)?.[1];
+  if (invite && !up) {
+    notify(`Can't reach the server, so invite ${invite} can't be opened.`);
+  } else if (invite) {
+    void joinGame(invite);
+  }
+})();
 // So the address bar and the Copy link button agree from the first paint,
 // not only after the first move.
 publish();

@@ -87,6 +87,13 @@
   #seed { width: 72px; }
   #tilt { width: 120px; }
   #share-url { width: 100%; font-size: 12px; }
+  #online-state { font-size: 13px; opacity: 0.7; }
+  #online-state.up { color: #4fb36e; opacity: 0.95; }
+  #online-state.down { color: #e0564a; opacity: 0.95; }
+  #room-code { width: 96px; text-transform: uppercase; }
+  #room-label { font-size: 15px; font-weight: 700; letter-spacing: 0.08em; }
+  #online-players { font-size: 13px; opacity: 0.75; }
+  .seat-you { color: #ffd400; }
   /* Owned by events, never by render(): a message about something that just
      happened must not be wiped by the next repaint of the board. */
   #notice { font-size: 13px; color: #ffd400; opacity: 0.9; }
@@ -163,6 +170,24 @@
     </div>
     <div class="row" id="rescue" hidden></div>
     <div class="row"><span id="hint"></span></div>
+  </div>
+
+  <div class="card" id="online-card">
+    <div class="row">
+      <strong id="online-title">Online</strong>
+      <span id="online-state">checking…</span>
+    </div>
+    <div class="row" id="online-actions">
+      <button id="host">Host a game</button>
+      <input id="room-code" type="text" placeholder="room code" maxlength="8" />
+      <button id="join">Join</button>
+    </div>
+    <div class="row" id="online-room" hidden>
+      <span id="room-label"></span>
+      <button id="copy-room">Copy invite</button>
+      <button id="leave">Leave</button>
+    </div>
+    <div class="row"><span id="online-players"></span></div>
   </div>
 
   <div class="card">

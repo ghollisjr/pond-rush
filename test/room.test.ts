@@ -189,3 +189,19 @@ describe("the server trusts nothing", () => {
     expect(() => play(room, tokens[0], options.length, 0, NOW)).toThrow();
   });
 });
+
+describe("waiting for a full table", () => {
+  it("refuses play while a seat is empty", () => {
+    // Turn order visits every seat on the board, so an empty one is a turn
+    // nobody can take. Without this the game deadlocks a move or two in.
+    const partial = join(fresh("standard-2p"), "solo", "t0").room;
+    expect(viewOf(partial).openSeats).toHaveLength(1);
+    expect(() => play(partial, "t0", 0, 0, NOW)).toThrow();
+  });
+
+  it("allows play the moment the last seat is taken", () => {
+    const { room, tokens } = seatAll(fresh("standard-2p"));
+    expect(viewOf(room).openSeats).toHaveLength(0);
+    expect(() => play(room, tokens[0], 0, 0, NOW)).not.toThrow();
+  });
+})
