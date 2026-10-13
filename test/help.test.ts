@@ -181,3 +181,36 @@ describe("tutorial", () => {
     expect(all.includes("Stop here")).toBe(true);
   });
 });
+
+describe("explainNow in a shared game", () => {
+  const s = applyMove(createGame(2, BOARD_4P, OFFICIAL_RULES), { kind: "pass" });
+  const who = (seat: number) => ({
+    seat,
+    nameFor: (n: number) => ["Alice", "Bob", "Cara", "Dev"][n],
+  });
+
+  it("addresses the player whose turn it is as 'you'", () => {
+    // Seat numbers are right when one person plays everybody, and wrong the
+    // moment they do not: "Player 2's turn" reads as somebody else when you
+    // are Player 2.
+    expect(explainNow(s, NO_SELECTION, plain, who(s.turn)).headline).toBe("Your turn");
+  });
+
+  it("names the other player rather than numbering them", () => {
+    const other = (s.turn + 1) % 4;
+    expect(explainNow(s, NO_SELECTION, plain, who(other)).headline)
+      .toBe(`${["Alice", "Bob", "Cara", "Dev"][s.turn]}'s turn`);
+  });
+
+  it("offers nothing to do while waiting for someone else", () => {
+    const other = (s.turn + 1) % 4;
+    const panel = explainNow(s, NO_SELECTION, plain, who(other));
+    expect(panel.options).toHaveLength(0);
+    expect(panel.detail.includes("updates on its own")).toBe(true);
+  });
+
+  it("still speaks in seat numbers with no perspective, for hot seat", () => {
+    expect(explainNow(s, NO_SELECTION, plain).headline).toBe(`Player ${s.turn + 1}'s turn`);
+    expect(explainNow(s, NO_SELECTION, plain).options).toHaveLength(1);
+  });
+})

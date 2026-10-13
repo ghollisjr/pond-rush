@@ -218,6 +218,10 @@ function adopt(room: RoomView): void {
   );
   session.selection = NO_SELECTION;
   if (net) net.room = room;
+  // The controls describe the game on the board, which in a room is the
+  // room's, not whatever was picked locally before joining.
+  ($("variant") as HTMLSelectElement).value = room.variantId;
+  ($("seed") as HTMLInputElement).value = String(room.seed);
   render();
 }
 
@@ -511,7 +515,19 @@ function sectionsHtml(sections: HelpSection[]): string {
 function renderHelp(): void {
   const { state, selection, theme } = session;
 
-  const now = explainNow(state, selection, theme);
+  const now = explainNow(
+    state,
+    selection,
+    theme,
+    net
+      ? {
+          seat: net.seat.seat,
+          nameFor: (s) =>
+            net!.room.players.find((p) => p.seat === s)?.name ??
+            `Player ${s + 1}`,
+        }
+      : undefined
+  );
   $("help-headline").textContent = now.headline;
   $("help-detail").textContent = now.detail;
   $("help-options").innerHTML = now.options

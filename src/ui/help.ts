@@ -21,7 +21,7 @@
 // first time somebody edits a variant.
 // ============================================================================
 
-import { legalMoves, type GameState } from "../pond-engine.ts";
+import { legalMoves, type GameState, type PlayerId } from "../pond-engine.ts";
 import type { Theme } from "../theme.ts";
 import {
   confirmableMove,
@@ -49,6 +49,21 @@ export interface NowPanel {
 export interface HelpSection {
   title: string;
   paras: string[];
+}
+
+/**
+ * Who is reading. Supplied only in a shared game — hot seat has no single
+ * "you". Without it the panel speaks in seat numbers, which is right when
+ * one person is playing everybody and wrong when they are not.
+ */
+export interface Perspective {
+  seat: PlayerId;
+  nameFor(seat: PlayerId): string;
+}
+
+function whose(seat: PlayerId, who?: Perspective): string {
+  if (!who) return `Player ${seat + 1}`;
+  return seat === who.seat ? "You" : who.nameFor(seat);
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +119,8 @@ function scoringCells(
 export function explainNow(
   state: GameState,
   sel: Selection,
-  theme: Theme
+  theme: Theme,
+  who?: Perspective
 ): NowPanel {
   const w = words(theme);
   const moves = legalMoves(state);
@@ -129,13 +145,17 @@ export function explainNow(
   }
 
   if (state.phase === "awaiting_roll") {
+    const actor = whose(state.turn, who);
     return {
-      headline: `Player ${state.turn + 1}'s turn`,
+      headline: actor === "You" ? "Your turn" : `${actor}'s turn`,
       detail:
-        `Roll to find out what you may do. You get one action per turn, and ` +
-        `the die decides which: a ${w.move.toLowerCase()}, a ` +
-        `${w.leap.toLowerCase()}, or the ${w.hazard}.`,
-      options: [
+        who && state.turn !== who.seat
+          ? `Nothing to do until they have taken their turn. The board ` +
+            `updates on its own.`
+          : `Roll to find out what you may do. You get one action per turn, ` +
+            `and the die decides which: a ${w.move.toLowerCase()}, a ` +
+            `${w.leap.toLowerCase()}, or the ${w.hazard}.`,
+      options: who && state.turn !== who.seat ? [] : [
         {
           label: "Roll",
           text:
