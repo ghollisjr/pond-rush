@@ -81,6 +81,11 @@
   button { cursor: pointer; }
   button:hover:not(:disabled) { background: #2d3740; }
   button:disabled { opacity: 0.35; cursor: default; }
+  /* A class that sets `display` beats the browser's own [hidden] rule, so
+     every `.row[hidden]` in this page was visible regardless: "Copy invite"
+     and "Leave" showed when no room was joined. Anything marked hidden is
+     hidden, whatever else its class says. */
+  [hidden] { display: none !important; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .row + .row { margin-top: 10px; }
   label { font-size: 13px; opacity: 0.75; }
@@ -107,6 +112,10 @@
   /* Owned by events, never by render(): a message about something that just
      happened must not be wiped by the next repaint of the board. */
   #notice { font-size: 13px; color: #ffd400; opacity: 0.9; }
+  .muted { font-size: 12px; opacity: 0.55; }
+  /* A disabled control must not invite a click. The default cursor over a
+     greyed button still says "press me". */
+  button:disabled, input:disabled, select:disabled { cursor: not-allowed; }
   #tilt-read { font-size: 13px; opacity: 0.7; min-width: 3.5em; }
   #rescue { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
@@ -167,12 +176,13 @@
       <button id="pass">Pass</button>
       <button id="undo">Undo</button>
       <button id="help-toggle" aria-expanded="true">Help</button>
-      <button id="share">Copy link</button>
+      <button id="share" title="Copies a link that carries this game. For playing without a server — send it to the next player and they continue from here.">Copy game link</button>
     </div>
     <div class="row">
       <input id="share-url" type="text" readonly hidden />
     </div>
     <div class="row"><span id="notice" hidden></span></div>
+    <div class="row"><span id="share-hint" class="muted"></span></div>
     <div class="row">
       <label for="tilt">tilt</label>
       <input id="tilt" type="range" min="0" max="65" step="5" value="45" />
@@ -197,10 +207,11 @@
     </div>
     <div class="row" id="online-room" hidden>
       <span id="room-label"></span>
-      <button id="copy-room">Copy invite</button>
+      <button id="copy-room" title="Copies a link that invites someone into this room.">Copy invite</button>
       <button id="leave">Leave</button>
     </div>
     <div class="row"><span id="online-players"></span></div>
+    <div class="row"><span id="online-hint" class="muted"></span></div>
   </div>
 
   <div class="card">

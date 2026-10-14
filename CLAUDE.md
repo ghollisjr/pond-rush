@@ -80,6 +80,19 @@ Resuming is `localStorage`'s job; a shareable game link is something the
 player asks for with a button. Only one link control is ever visible — in a
 room, the invite is the only link that means anything.
 
+**A control that cannot work must not look pressable, and a hidden one must
+actually be hidden.** Both halves were broken. `Host` and `Join` stayed fully
+live while the panel said the server was unreachable, and `Roll` was live in a
+room that was still waiting for players — the server refused, so the only
+feedback was an error. And `.row { display: flex }` outranks the browser's own
+`[hidden] { display: none }`, so *every* `.row[hidden]` on the page was
+visible: "Copy invite" and "Leave" showed with no room joined. There is now a
+`[hidden] { display: none !important }` rule and a test asserting it.
+
+Auditing this by reading the `hidden` attribute is how the second bug survived
+a deliberate audit. Check geometry — `getBoundingClientRect()` — not
+attributes.
+
 **A control must never change the layout around itself.** The tilt slider
 first sized the board's stage from the current tilt, so dragging it reflowed
 the page and moved the slider out from under the cursor. The HUD's face line

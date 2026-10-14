@@ -262,9 +262,11 @@ function notify(message: string): void {
 }
 
 function markReachable(up: boolean, why = ""): void {
+  serverUp = up;
   const el = $("online-state");
   el.textContent = up ? "connected" : why || "unreachable";
   el.className = up ? "up" : "down";
+  renderOnline();
 }
 
 function renderOnline(): void {
@@ -272,9 +274,21 @@ function renderOnline(): void {
   $("online-actions").hidden = inGame;
   $("online-room").hidden = !inGame;
 
+  // With no server there is nothing these can do, and a button that only
+  // produces an error message should not look pressable.
+  const why = serverUp ? "" : "No server — online play is unavailable.";
+  for (const id of ["host", "join", "room-code"]) {
+    const el = $(id) as HTMLButtonElement | HTMLInputElement;
+    el.disabled = !serverUp;
+    el.title = why;
+  }
+
   if (!net) {
     $("online-players").textContent = "";
     $("you-row").hidden = true;
+    $("online-hint").textContent = serverUp
+      ? "Host a game and send the invite, or enter a code to join one."
+      : "The game still works here — hot seat, or a game link.";
     return;
   }
 
@@ -303,12 +317,27 @@ function renderOnline(): void {
     ? ` · waiting for ${net.room.openSeats.length} more`
     : "";
   $("online-players").innerHTML = seats + waiting;
+  $("online-hint").textContent = net.room.openSeats.length
+    ? "The game starts once every seat is taken."
+    : "";
 }
 
 /** True when the board should ignore clicks: someone else is to move. */
 function spectating(): boolean {
   return net !== null && session.state.turn !== net.seat.seat;
 }
+
+/**
+ * A room that is not yet full cannot be played: turn order visits every seat
+ * and an empty one is a turn nobody can take. The server refuses, so the
+ * controls must not look willing.
+ */
+function waitingForPlayers(): boolean {
+  return net !== null && net.room.openSeats.length > 0;
+}
+
+/** Whether the server answered when last asked. */
+let serverUp = false;
 
 async function hostGame(): Promise<void> {
   try {
@@ -580,9 +609,9 @@ function renderHud(): void {
     )
     .join("");
 
-  const theirTurn = spectating();
-  ($("roll") as HTMLButtonElement).disabled = !st.canRoll || theirTurn;
-  ($("pass") as HTMLButtonElement).disabled = !st.canPass || theirTurn;
+  const blocked = spectating() || waitingForPlayers();
+  ($("roll") as HTMLButtonElement).disabled = !st.canRoll || blocked;
+  ($("pass") as HTMLButtonElement).disabled = !st.canPass || blocked;
   // Undo rewrites history, which cannot be done to a game other people are
   // in. Share the link instead if you want a do-over.
   ($("undo") as HTMLButtonElement).disabled =
@@ -613,10 +642,23 @@ function renderHud(): void {
     : "";
 
   $("hint").textContent = hintFor();
+
+  // Two different links exist and they are easy to confuse. Say which is
+  // which where the button is, not in a help page nobody opens.
+  $("share-hint").textContent = net
+    ? ""
+    : session.moves.length
+      ? "Game link: carries this game to someone else. No server needed."
+      : "Game link: shareable once you have played a move.";
+  ($("share") as HTMLButtonElement).disabled = !net && session.moves.length === 0;
 }
 
 function hintFor(): string {
   const { state, selection, theme } = session;
+  if (waitingForPlayers()) {
+    const n = net!.room.openSeats.length;
+    return `Waiting for ${n} more player${n === 1 ? "" : "s"} — send the invite.`;
+  }
   if (spectating()) {
     const who = net!.room.players.find((p) => p.seat === state.turn);
     return `Waiting for ${who ? who.name : `Player ${state.turn + 1}`}…`;
@@ -722,6 +764,7 @@ function wire(): void {
   $("copy-room").addEventListener("click", async () => {
     if (!net) return;
     const url = `${location.origin}${location.pathname}#room=${net.roomId}`;
+    $("share-url").hidden = true;
     try {
       await navigator.clipboard.writeText(url);
       notify("Invite copied — send it to the other players.");
@@ -734,6 +777,7 @@ function wire(): void {
 
   $("share").addEventListener("click", async () => {
     const url = `${location.origin}${location.pathname}#g=${currentLink()}`;
+    $("share-url").hidden = true;
     try {
       await navigator.clipboard.writeText(url);
       notify("Link copied. It carries this game — send it to the next player.");
